@@ -554,7 +554,12 @@
         // ==========================================
 
         const { createClient } = supabase;
-        const sb = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+        let sb;
+        try {
+            sb = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+        } catch (e) {
+            console.error("Supabase initialization failed. Check your URL and Key.", e);
+        }
 
         // --- State ---
         let selectedFile = null;
@@ -562,31 +567,42 @@
 
         // --- Init ---
         window.onload = () => {
-            lucide.createIcons();
-            
-            // Theme Init
-            const savedTheme = localStorage.getItem('zdrop_theme') || 'dark';
-            document.documentElement.setAttribute('data-theme', savedTheme);
-            updateThemeIcon(savedTheme);
-
-            // Session Check
-            const savedUser = localStorage.getItem('zdrop_user');
-            if (savedUser) {
-                currentUser = JSON.parse(savedUser);
-                updateUIForUser();
-            }
-
-            // Intro Animation Sequence
+            // 1. Always run intro animation regardless of errors
             setTimeout(() => {
-                document.getElementById('intro-screen').style.display = 'none';
-                document.getElementById('main-content').classList.remove('opacity-0');
-                document.getElementById('main-content').classList.add('opacity-100');
+                const intro = document.getElementById('intro-screen');
+                const main = document.getElementById('main-content');
+                if (intro) intro.style.display = 'none';
+                if (main) {
+                    main.classList.remove('opacity-0');
+                    main.classList.add('opacity-100');
+                }
             }, 2500);
 
-            // Bio counter
-            document.getElementById('profile-bio').addEventListener('input', (e) => {
-                document.getElementById('bio-count').innerText = `${e.target.value.length}/101`;
-            });
+            try {
+                lucide.createIcons();
+                
+                // Theme Init
+                const savedTheme = localStorage.getItem('zdrop_theme') || 'dark';
+                document.documentElement.setAttribute('data-theme', savedTheme);
+                updateThemeIcon(savedTheme);
+
+                // Session Check
+                const savedUser = localStorage.getItem('zdrop_user');
+                if (savedUser) {
+                    currentUser = JSON.parse(savedUser);
+                    updateUIForUser();
+                }
+
+                // Bio counter
+                const bioInput = document.getElementById('profile-bio');
+                if (bioInput) {
+                    bioInput.addEventListener('input', (e) => {
+                        document.getElementById('bio-count').innerText = `${e.target.value.length}/101`;
+                    });
+                }
+            } catch (err) {
+                console.error("Initialization error:", err);
+            }
         };
 
         // --- Theme Toggle ---
@@ -692,12 +708,12 @@
             document.getElementById('profile-username').innerText = `@${currentUser.username}`;
             document.getElementById('profile-bio').value = currentUser.bio || "";
             document.getElementById('bio-count').innerText = `${(currentUser.bio || "").length}/101`;
-            fetchInbox(); // Fetch inbox when UI updates
+            if (window.fetchInbox) window.fetchInbox(); // Fetch inbox when UI updates
         };
 
         // --- Inbox Logic ---
         window.fetchInbox = async () => {
-            if (!currentUser) return;
+            if (!currentUser || !sb) return;
             
             try {
                 // 1. Auto-Purge Expired Drops (Older than 24 hours)
