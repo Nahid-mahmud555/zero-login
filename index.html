@@ -1,0 +1,1011 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Z DROP | SECURE PORTAL</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500&display=swap');
+        
+        :root {
+            --bg: #050505;
+            --text: #ffffff;
+            --text-muted: rgba(255, 255, 255, 0.4);
+            --glass-bg: rgba(255, 255, 255, 0.03);
+            --glass-border: rgba(255, 255, 255, 0.08);
+            --accent: #3b82f6;
+            --accent-glow: rgba(59, 130, 246, 0.3);
+            --card-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.7);
+            --input-bg: rgba(255, 255, 255, 0.04);
+        }
+
+        [data-theme="light"] {
+            --bg: #f8fafc;
+            --text: #0f172a;
+            --text-muted: rgba(15, 23, 42, 0.5);
+            --glass-bg: rgba(255, 255, 255, 0.7);
+            --glass-border: rgba(0, 0, 0, 0.05);
+            --accent: #2563eb;
+            --accent-glow: rgba(37, 99, 235, 0.1);
+            --card-shadow: 0 20px 40px -10px rgba(0, 0, 0, 0.1);
+            --input-bg: rgba(0, 0, 0, 0.03);
+        }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: var(--bg);
+            color: var(--text);
+            overflow-x: hidden;
+            margin: 0;
+            transition: background-color 0.5s ease, color 0.5s ease;
+        }
+
+        .mono { font-family: 'JetBrains Mono', monospace; }
+
+        /* --- Background Effects --- */
+        .atmosphere {
+            position: fixed;
+            inset: 0;
+            pointer-events: none;
+            z-index: -1;
+        }
+
+        .glow {
+            position: absolute;
+            width: 60vw;
+            height: 60vw;
+            filter: blur(150px);
+            border-radius: 50%;
+            opacity: 0.15;
+            animation: pulse 10s infinite alternate;
+        }
+
+        [data-theme="light"] .glow { opacity: 0.05; }
+
+        @keyframes pulse {
+            from { transform: scale(1); opacity: 0.1; }
+            to { transform: scale(1.2); opacity: 0.2; }
+        }
+
+        .noise {
+            position: absolute;
+            inset: 0;
+            background: url('https://grainy-gradients.vercel.app/noise.svg');
+            opacity: 0.1;
+            mix-blend-mode: overlay;
+        }
+
+        /* --- Glassmorphism --- */
+        .glass {
+            background: var(--glass-bg);
+            backdrop-filter: blur(25px);
+            border: 1px solid var(--glass-border);
+            border-radius: 32px;
+            box-shadow: var(--card-shadow);
+            transition: all 0.3s ease;
+        }
+
+        .glass-hover:hover {
+            background: var(--glass-bg);
+            border-color: var(--accent);
+            transform: translateY(-8px);
+            box-shadow: 0 30px 60px -15px rgba(0, 0, 0, 0.2);
+        }
+
+        /* --- Animations --- */
+        .fade-in { animation: fadeIn 0.8s cubic-bezier(0.16, 1, 0.3, 1) forwards; }
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(30px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .intro-text {
+            font-size: 15vw;
+            font-weight: 950;
+            letter-spacing: -0.05em;
+            line-height: 0.8;
+            text-transform: uppercase;
+            background: linear-gradient(to bottom, var(--text) 30%, var(--text-muted));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            opacity: 0;
+        }
+
+        .animate-intro {
+            animation: introAnim 2.5s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+        }
+
+        @keyframes introAnim {
+            0% { opacity: 0; transform: scale(1.2) translateY(50px); filter: blur(20px); }
+            40% { opacity: 1; transform: scale(1) translateY(0); filter: blur(0); }
+            80% { opacity: 1; transform: scale(1) translateY(0); filter: blur(0); }
+            100% { opacity: 0; transform: scale(0.95) translateY(-30px); filter: blur(10px); visibility: hidden; }
+        }
+
+        /* --- UI Elements --- */
+        .btn-action {
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .btn-action::after {
+            content: '';
+            position: absolute;
+            inset: 0;
+            background: linear-gradient(45deg, transparent, rgba(255,255,255,0.1), transparent);
+            transform: translateX(-100%);
+            transition: transform 0.6s;
+        }
+
+        .btn-action:hover::after { transform: translateX(100%); }
+
+        .input-field {
+            background: var(--input-bg);
+            border: 1px solid var(--glass-border);
+            border-radius: 18px;
+            padding: 1rem 1.25rem;
+            color: var(--text);
+            width: 100%;
+            transition: all 0.2s;
+        }
+
+        .input-field:focus {
+            outline: none;
+            border-color: var(--accent);
+            background: var(--glass-bg);
+            box-shadow: 0 0 0 4px var(--accent-glow);
+        }
+
+        .view { display: none; }
+        .view.active { display: block; }
+
+        .loader {
+            width: 20px;
+            height: 20px;
+            border: 2px solid rgba(255,255,255,0.1);
+            border-top-color: var(--text);
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+        }
+        @keyframes spin { to { transform: rotate(360deg); } }
+
+        .theme-toggle {
+            width: 48px;
+            height: 48px;
+            border-radius: 16px;
+            background: var(--glass-bg);
+            border: 1px solid var(--glass-border);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+
+        .theme-toggle:hover {
+            background: var(--accent);
+            color: white;
+            transform: rotate(15deg);
+        }
+
+        ::-webkit-scrollbar { width: 6px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: var(--text-muted); border-radius: 10px; }
+    </style>
+</head>
+<body>
+    <div class="atmosphere">
+        <div class="glow bg-blue-600/20 top-[-10%] left-[-10%]"></div>
+        <div class="glow bg-purple-600/20 bottom-[-10%] right-[-10%]"></div>
+        <div class="noise"></div>
+    </div>
+
+    <!-- Intro Animation -->
+    <div id="intro-screen" class="fixed inset-0 z-[100] flex items-center justify-center bg-black">
+        <h1 class="intro-text animate-intro">Z DROP</h1>
+    </div>
+
+    <!-- Main Content -->
+    <div id="main-content" class="opacity-0 transition-opacity duration-1000">
+        <nav class="px-8 py-8 flex justify-between items-center max-w-7xl mx-auto relative z-50">
+            <div class="flex items-center gap-3 cursor-pointer" onclick="showView('landing')">
+                <div class="w-12 h-12 bg-blue-600 rounded-2xl flex items-center justify-center shadow-xl shadow-blue-600/20">
+                    <i data-lucide="zap" class="text-white w-6 h-6"></i>
+                </div>
+                <div class="flex flex-col">
+                    <span class="text-xl font-black tracking-tighter leading-none">Z <span class="text-blue-500">DROP</span></span>
+                    <span class="text-[10px] text-white/30 uppercase tracking-[0.3em] font-bold">Portal v2.5</span>
+                </div>
+            </div>
+            
+            <div class="flex items-center gap-4">
+                <div id="user-display" class="hidden flex items-center gap-3 bg-white/5 px-4 py-2 rounded-2xl cursor-pointer hover:bg-white/10 transition-colors" onclick="showView('profile')">
+                    <div class="w-8 h-8 bg-blue-600 rounded-full flex items-center justify-center">
+                        <i data-lucide="user" class="w-4 h-4 text-white"></i>
+                    </div>
+                    <span id="nav-username" class="text-xs font-bold">@username</span>
+                </div>
+                <button onclick="toggleTheme()" class="theme-toggle">
+                    <i id="theme-icon" data-lucide="sun" class="w-5 h-5"></i>
+                </button>
+            </div>
+        </nav>
+
+        <main class="max-w-5xl mx-auto px-6 pt-12 pb-32">
+            
+            <!-- Landing View -->
+            <div id="view-landing" class="view active fade-in">
+                <div class="text-center mb-16 space-y-4">
+                    <h2 class="text-5xl md:text-7xl font-black tracking-tight">WELCOME TO <span class="text-blue-500">Z DROP</span></h2>
+                    <p class="text-white/40 max-w-lg mx-auto text-lg" style="color: var(--text-muted)">Secure, ephemeral file sharing. Choose your portal entry.</p>
+                </div>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
+                    <div class="glass glass-hover p-10 cursor-pointer group" onclick="showView('signup')">
+                        <div class="space-y-8">
+                            <div class="w-20 h-20 bg-blue-600 rounded-3xl flex items-center justify-center group-hover:scale-110 transition-transform shadow-2xl shadow-blue-600/40">
+                                <i data-lucide="user-plus" class="w-10 h-10 text-white"></i>
+                            </div>
+                            <div class="space-y-2">
+                                <h3 class="text-3xl font-bold">SIGN UP</h3>
+                                <p class="leading-relaxed" style="color: var(--text-muted)">Create a permanent identity and manage your profile.</p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="glass glass-hover p-10 cursor-pointer group" onclick="showView('menu')">
+                        <div class="space-y-8">
+                            <div class="w-20 h-20 bg-purple-600 rounded-3xl flex items-center justify-center group-hover:scale-110 transition-transform shadow-2xl shadow-purple-600/40">
+                                <i data-lucide="zap" class="w-10 h-10 text-white"></i>
+                            </div>
+                            <div class="space-y-2">
+                                <h3 class="text-3xl font-bold">SUDO SEND</h3>
+                                <p class="leading-relaxed" style="color: var(--text-muted)">Quick anonymous transmission without an account.</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="mt-12 text-center">
+                    <p class="text-sm" style="color: var(--text-muted)">Already have an account? <button onclick="showView('login')" class="text-blue-500 font-bold hover:underline">Login here</button></p>
+                </div>
+            </div>
+
+            <!-- Signup View -->
+            <div id="view-signup" class="view fade-in">
+                <div class="max-w-md mx-auto space-y-8">
+                    <div class="text-center space-y-2">
+                        <h2 class="text-4xl font-black tracking-tight">CREATE <span class="text-blue-500">ACCOUNT</span></h2>
+                        <p class="text-sm" style="color: var(--text-muted)">Join the secure network.</p>
+                    </div>
+                    <div class="glass p-8 space-y-6">
+                        <div class="space-y-2">
+                            <label class="text-[10px] font-bold uppercase tracking-[0.2em] ml-1" style="color: var(--text-muted)">Full Name</label>
+                            <input id="signup-name" type="text" placeholder="Real Name" class="input-field">
+                        </div>
+                        <div class="space-y-2">
+                            <label class="text-[10px] font-bold uppercase tracking-[0.2em] ml-1" style="color: var(--text-muted)">Username (Single Word)</label>
+                            <input id="signup-username" type="text" placeholder="username" class="input-field">
+                        </div>
+                        <div class="space-y-2">
+                            <label class="text-[10px] font-bold uppercase tracking-[0.2em] ml-1" style="color: var(--text-muted)">Password (Min 8 Chars, Strong)</label>
+                            <input id="signup-password" type="password" placeholder="••••••••" class="input-field">
+                        </div>
+                        <button onclick="handleSignup()" class="btn-action w-full bg-blue-600 py-4 rounded-2xl font-black text-white shadow-xl shadow-blue-600/20">
+                            CREATE IDENTITY
+                        </button>
+                        <button onclick="showView('landing')" class="w-full text-xs font-bold uppercase tracking-widest opacity-40 hover:opacity-100 transition-opacity">Cancel</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Login View -->
+            <div id="view-login" class="view fade-in">
+                <div class="max-w-md mx-auto space-y-8">
+                    <div class="text-center space-y-2">
+                        <h2 class="text-4xl font-black tracking-tight">PORTAL <span class="text-blue-500">LOGIN</span></h2>
+                        <p class="text-sm" style="color: var(--text-muted)">Access your identity.</p>
+                    </div>
+                    <div class="glass p-8 space-y-6">
+                        <div class="space-y-2">
+                            <label class="text-[10px] font-bold uppercase tracking-[0.2em] ml-1" style="color: var(--text-muted)">Username</label>
+                            <input id="login-username" type="text" placeholder="username" class="input-field">
+                        </div>
+                        <div class="space-y-2">
+                            <label class="text-[10px] font-bold uppercase tracking-[0.2em] ml-1" style="color: var(--text-muted)">Password</label>
+                            <input id="login-password" type="password" placeholder="••••••••" class="input-field">
+                        </div>
+                        <button onclick="handleLogin()" class="btn-action w-full bg-blue-600 py-4 rounded-2xl font-black text-white shadow-xl shadow-blue-600/20">
+                            ENTER PORTAL
+                        </button>
+                        <button onclick="showView('landing')" class="w-full text-xs font-bold uppercase tracking-widest opacity-40 hover:opacity-100 transition-opacity">Cancel</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Profile View -->
+            <div id="view-profile" class="view fade-in">
+                <div class="max-w-2xl mx-auto space-y-8">
+                    <div class="flex items-center justify-between">
+                        <h2 class="text-4xl font-black tracking-tight">USER <span class="text-blue-500">PROFILE</span></h2>
+                        <button onclick="handleLogout()" class="text-red-500 font-bold text-xs uppercase tracking-widest hover:underline">Logout</button>
+                    </div>
+                    <div class="glass p-10 space-y-8">
+                        <div class="flex items-center gap-6">
+                            <div class="w-24 h-24 bg-blue-600 rounded-3xl flex items-center justify-center shadow-2xl shadow-blue-600/30">
+                                <i data-lucide="user" class="w-12 h-12 text-white"></i>
+                            </div>
+                            <div class="space-y-1">
+                                <h3 id="profile-name" class="text-3xl font-black">Real Name</h3>
+                                <p id="profile-username" class="text-blue-500 font-bold">@username</p>
+                            </div>
+                        </div>
+                        <div class="space-y-4">
+                            <div class="flex justify-between items-center">
+                                <label class="text-[10px] font-bold uppercase tracking-[0.2em]" style="color: var(--text-muted)">Bio (Max 101 Letters)</label>
+                                <span id="bio-count" class="text-[10px] font-bold" style="color: var(--text-muted)">0/101</span>
+                            </div>
+                            <textarea id="profile-bio" maxlength="101" placeholder="Tell us about yourself..." class="input-field min-h-[120px] resize-none"></textarea>
+                            <button onclick="updateBio()" class="btn-action w-full bg-white/5 py-4 rounded-2xl font-bold text-sm tracking-widest hover:bg-white/10 transition-colors" style="background: var(--input-bg)">
+                                SAVE BIO
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Menu View (Main Action Hub) -->
+            <div id="view-menu" class="view fade-in">
+                <div class="flex items-center gap-4 mb-12">
+                    <button onclick="showView('landing')" class="p-3 bg-white/5 hover:bg-white/10 rounded-2xl transition-colors" style="background: var(--input-bg)">
+                        <i data-lucide="chevron-left" class="w-6 h-6"></i>
+                    </button>
+                    <h2 class="text-4xl font-black tracking-tight">Z <span class="text-blue-500">PORTAL</span></h2>
+                </div>
+                <div class="text-center mb-16 space-y-4">
+                    <h2 class="text-5xl md:text-7xl font-black tracking-tight">DROP YOUR <span class="text-blue-500">FILES</span></h2>
+                    <p class="text-white/40 max-w-lg mx-auto text-lg" style="color: var(--text-muted)">Secure, ephemeral file sharing. Encrypted at rest, deleted in 24 hours.</p>
+                </div>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
+                    <div class="glass glass-hover p-10 cursor-pointer group" onclick="showView('inbox')">
+                        <div class="space-y-8">
+                            <div class="w-20 h-20 bg-green-600 rounded-3xl flex items-center justify-center group-hover:scale-110 transition-transform shadow-2xl shadow-green-600/40 relative">
+                                <i data-lucide="inbox" class="w-10 h-10 text-white"></i>
+                                <div id="inbox-badge" class="hidden absolute -top-2 -right-2 w-8 h-8 bg-red-500 rounded-full border-4 border-[#050505] flex items-center justify-center text-[10px] font-black text-white">0</div>
+                            </div>
+                            <div class="space-y-2">
+                                <h3 class="text-3xl font-bold">INBOX</h3>
+                                <p class="leading-relaxed" style="color: var(--text-muted)">View and manage files sent to your identity.</p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="glass glass-hover p-10 cursor-pointer group" onclick="showView('send')">
+                        <div class="space-y-8">
+                            <div class="w-20 h-20 bg-blue-600 rounded-3xl flex items-center justify-center group-hover:scale-110 transition-transform shadow-2xl shadow-blue-600/40">
+                                <i data-lucide="send" class="w-10 h-10 text-white"></i>
+                            </div>
+                            <div class="space-y-2">
+                                <h3 class="text-3xl font-bold">SEND</h3>
+                                <p class="leading-relaxed" style="color: var(--text-muted)">Upload files or convert text to documents instantly.</p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="glass glass-hover p-10 cursor-pointer group" onclick="showView('receive')">
+                        <div class="space-y-8">
+                            <div class="w-20 h-20 bg-purple-600 rounded-3xl flex items-center justify-center group-hover:scale-110 transition-transform shadow-2xl shadow-purple-600/40">
+                                <i data-lucide="download" class="w-10 h-10 text-white"></i>
+                            </div>
+                            <div class="space-y-2">
+                                <h3 class="text-3xl font-bold">RECEIVE</h3>
+                                <p class="leading-relaxed" style="color: var(--text-muted)">Access files shared with you using your portal key.</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Inbox View -->
+            <div id="view-inbox" class="view fade-in">
+                <div class="flex items-center gap-4 mb-12">
+                    <button onclick="showView('menu')" class="p-3 bg-white/5 hover:bg-white/10 rounded-2xl transition-colors" style="background: var(--input-bg)">
+                        <i data-lucide="chevron-left" class="w-6 h-6"></i>
+                    </button>
+                    <h2 class="text-4xl font-black tracking-tight">Z <span class="text-green-500">INBOX</span></h2>
+                </div>
+
+                <div class="max-w-3xl mx-auto space-y-6">
+                    <div id="inbox-list" class="space-y-4">
+                        <!-- Inbox items will be injected here -->
+                        <div class="text-center py-20 opacity-20">
+                            <i data-lucide="inbox" class="w-16 h-16 mx-auto mb-4"></i>
+                            <p class="font-bold uppercase tracking-widest">Your inbox is empty</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Send View -->
+            <div id="view-send" class="view fade-in">
+                <div class="flex items-center gap-4 mb-12">
+                    <button onclick="showView('menu')" class="p-3 bg-white/5 hover:bg-white/10 rounded-2xl transition-colors" style="background: var(--input-bg)">
+                        <i data-lucide="chevron-left" class="w-6 h-6"></i>
+                    </button>
+                    <h2 class="text-4xl font-black tracking-tight">Z <span class="text-blue-500">SEND</span></h2>
+                </div>
+
+                <div class="grid grid-cols-1 lg:grid-cols-12 gap-8">
+                    <div class="lg:col-span-5 space-y-6">
+                        <div class="glass p-8 space-y-6">
+                            <div class="space-y-2">
+                                <label class="text-[10px] font-bold uppercase tracking-[0.2em] ml-1" style="color: var(--text-muted)">Receiver Username</label>
+                                <input id="send-receiver" type="text" placeholder="@username" class="input-field">
+                            </div>
+                            <div class="space-y-2">
+                                <label class="text-[10px] font-bold uppercase tracking-[0.2em] ml-1" style="color: var(--text-muted)">Secret Password</label>
+                                <input id="send-password" type="password" placeholder="••••••••" class="input-field">
+                            </div>
+                            <div class="space-y-2">
+                                <label class="text-[10px] font-bold uppercase tracking-[0.2em] ml-1" style="color: var(--text-muted)">Short Description</label>
+                                <input id="send-desc" type="text" placeholder="What is this?" class="input-field">
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="lg:col-span-7 space-y-6">
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-6 h-full">
+                            <!-- Dropzone -->
+                            <div id="dropzone" class="glass border-2 border-dashed border-white/10 flex flex-col items-center justify-center p-8 cursor-pointer hover:bg-white/5 transition-all group min-h-[250px]" style="border-color: var(--glass-border)">
+                                <input type="file" id="file-input" class="hidden">
+                                <div id="dropzone-empty" class="text-center space-y-4">
+                                    <div class="w-16 h-16 bg-white/5 rounded-2xl flex items-center justify-center mx-auto group-hover:scale-110 transition-transform" style="background: var(--input-bg)">
+                                        <i data-lucide="upload-cloud" class="w-8 h-8" style="color: var(--text-muted)"></i>
+                                    </div>
+                                    <div class="space-y-1">
+                                        <p class="text-sm font-bold" style="color: var(--text-muted)">Drop File Here</p>
+                                        <p class="text-[10px] font-bold uppercase tracking-widest text-blue-500/50">Max 3MB Limit</p>
+                                    </div>
+                                </div>
+                                <div id="dropzone-file" class="hidden text-center space-y-4">
+                                    <div class="w-16 h-16 bg-blue-600/20 rounded-2xl flex items-center justify-center mx-auto">
+                                        <i data-lucide="file" class="w-8 h-8 text-blue-500"></i>
+                                    </div>
+                                    <p id="file-name-display" class="text-sm font-bold truncate max-w-[150px]"></p>
+                                    <button onclick="removeFile(event)" class="text-[10px] font-black text-red-500 uppercase tracking-widest">Remove</button>
+                                </div>
+                            </div>
+
+                            <!-- Text Box -->
+                            <div class="glass p-6 flex flex-col gap-4 min-h-[250px]">
+                                <div class="flex justify-between items-center">
+                                    <label class="text-[10px] font-bold uppercase tracking-[0.2em]" style="color: var(--text-muted)">Text to File</label>
+                                    <i data-lucide="type" class="w-4 h-4" style="color: var(--text-muted)"></i>
+                                </div>
+                                <textarea id="send-text" placeholder="Type your message here... it will be sent as a .txt file." class="flex-1 bg-transparent border-none focus:ring-0 resize-none text-sm mono text-white/80 placeholder:text-white/20" style="color: var(--text)"></textarea>
+                            </div>
+                        </div>
+                        
+                        <button id="send-btn" onclick="handleSend()" class="btn-action w-full bg-blue-600 py-6 rounded-2xl font-black text-lg shadow-2xl shadow-blue-600/30 flex items-center justify-center gap-3 text-white">
+                            INITIALIZE DROP <i data-lucide="zap" class="w-5 h-5"></i>
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Receive View -->
+            <div id="view-receive" class="view fade-in">
+                <div class="flex items-center gap-4 mb-12">
+                    <button onclick="showView('menu')" class="p-3 bg-white/5 hover:bg-white/10 rounded-2xl transition-colors" style="background: var(--input-bg)">
+                        <i data-lucide="chevron-left" class="w-6 h-6"></i>
+                    </button>
+                    <h2 class="text-4xl font-black tracking-tight">Z <span class="text-purple-500">RECEIVE</span></h2>
+                </div>
+
+                <div class="max-w-2xl mx-auto space-y-8">
+                    <div class="glass p-10 space-y-8">
+                        <div class="text-center space-y-2">
+                            <h3 class="text-2xl font-bold">Unlock Content</h3>
+                            <p class="text-sm" style="color: var(--text-muted)">Enter the credentials provided by the sender.</p>
+                        </div>
+                        <div class="space-y-6">
+                            <div class="space-y-2">
+                                <label class="text-[10px] font-bold uppercase tracking-[0.2em] ml-1" style="color: var(--text-muted)">Your Username</label>
+                                <input id="receive-username" type="text" placeholder="@username" class="input-field">
+                            </div>
+                            <div class="space-y-2">
+                                <label class="text-[10px] font-bold uppercase tracking-[0.2em] ml-1" style="color: var(--text-muted)">Secret Password</label>
+                                <input id="receive-password" type="password" placeholder="••••••••" class="input-field">
+                            </div>
+                            <button id="receive-btn" onclick="handleReceive()" class="btn-action w-full bg-purple-600 py-5 rounded-2xl font-black text-lg shadow-2xl shadow-purple-600/30 flex items-center justify-center gap-3 text-white">
+                                DECRYPT & OPEN <i data-lucide="unlock" class="w-5 h-5"></i>
+                            </button>
+                        </div>
+                    </div>
+
+                    <div id="receive-result" class="hidden glass p-8 space-y-6 animate-pulse">
+                        <div class="flex items-center gap-6">
+                            <div class="w-16 h-16 bg-green-500/20 rounded-2xl flex items-center justify-center">
+                                <i data-lucide="file-check" class="w-8 h-8 text-green-500"></i>
+                            </div>
+                            <div class="flex-1">
+                                <h4 id="res-filename" class="text-xl font-bold">file_name.ext</h4>
+                                <p id="res-desc" class="text-sm italic" style="color: var(--text-muted)"></p>
+                            </div>
+                            <button id="download-btn" class="p-4 bg-white/10 hover:bg-white/20 rounded-2xl transition-all" style="background: var(--input-bg)">
+                                <i data-lucide="download" class="w-6 h-6"></i>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <footer class="fixed bottom-8 left-0 right-0 text-center text-[10px] text-white/10 uppercase tracking-[0.5em] font-black pointer-events-none" style="color: var(--text-muted); opacity: 0.2">
+        Z DROP &bull; EPHEMERAL STORAGE &bull; 24H AUTO-PURGE
+    </footer>
+
+    <script type="module">
+        // ==========================================
+        // ADD YOUR SUPABASE CREDENTIALS HERE
+        // ==========================================
+        const SUPABASE_URL = 'sb_publishable_2w2WWtOBoKtNArFLZ51B-A_WYLCy0XD';
+        const SUPABASE_ANON_KEY = 'https://ersmbkzwcukkqkyrveqt.supabase.co';
+        // ==========================================
+
+        const { createClient } = supabase;
+        const sb = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+        // --- State ---
+        let selectedFile = null;
+        let currentUser = null;
+
+        // --- Init ---
+        window.onload = () => {
+            lucide.createIcons();
+            
+            // Theme Init
+            const savedTheme = localStorage.getItem('zdrop_theme') || 'dark';
+            document.documentElement.setAttribute('data-theme', savedTheme);
+            updateThemeIcon(savedTheme);
+
+            // Session Check
+            const savedUser = localStorage.getItem('zdrop_user');
+            if (savedUser) {
+                currentUser = JSON.parse(savedUser);
+                updateUIForUser();
+            }
+
+            // Intro Animation Sequence
+            setTimeout(() => {
+                document.getElementById('intro-screen').style.display = 'none';
+                document.getElementById('main-content').classList.remove('opacity-0');
+                document.getElementById('main-content').classList.add('opacity-100');
+            }, 2500);
+
+            // Bio counter
+            document.getElementById('profile-bio').addEventListener('input', (e) => {
+                document.getElementById('bio-count').innerText = `${e.target.value.length}/101`;
+            });
+        };
+
+        // --- Theme Toggle ---
+        window.toggleTheme = () => {
+            const current = document.documentElement.getAttribute('data-theme');
+            const target = current === 'dark' ? 'light' : 'dark';
+            document.documentElement.setAttribute('data-theme', target);
+            localStorage.setItem('zdrop_theme', target);
+            updateThemeIcon(target);
+        };
+
+        const updateThemeIcon = (theme) => {
+            const icon = document.getElementById('theme-icon');
+            icon.setAttribute('data-lucide', theme === 'dark' ? 'sun' : 'moon');
+            lucide.createIcons();
+        };
+
+        // --- Navigation ---
+        window.showView = (viewName) => {
+            document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
+            document.getElementById(`view-${viewName}`).classList.add('active');
+            window.scrollTo(0, 0);
+        };
+
+        // --- Auth Logic ---
+        window.handleSignup = async () => {
+            const name = document.getElementById('signup-name').value.trim();
+            const username = document.getElementById('signup-username').value.trim().toLowerCase();
+            const password = document.getElementById('signup-password').value;
+
+            // Validation
+            if (!name || !username || !password) return alert("All fields are required.");
+            
+            // Name validation (Real name check - basic)
+            if (!/^[a-zA-Z\s]+$/.test(name)) return alert("Please enter a valid real name (letters only).");
+            
+            // Username validation (Single word)
+            if (username.includes(" ") || !/^[a-z0-9]+$/.test(username)) return alert("Username must be a single word with no special characters.");
+
+            // Password validation (8 chars, strong)
+            if (password.length < 8) return alert("Password must be at least 8 characters long.");
+            const strongRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*[0-9])(?=.*[!@#$%^&*])/;
+            if (!strongRegex.test(password)) return alert("Password must be strong (include uppercase, lowercase, number, and special character).");
+
+            try {
+                // Fetch IP for spam prevention
+                const ipRes = await fetch('https://api.ipify.org?format=json');
+                const { ip } = await ipRes.json();
+
+                // Check if IP already has an account
+                const { data: existingIP, error: ipError } = await sb.from('users').select('id').eq('ip_address', ip).limit(1);
+                if (existingIP && existingIP.length > 0) {
+                    return alert("Only one account allowed per device/IP to prevent spam.");
+                }
+
+                const { data, error } = await sb.from('users').insert([{
+                    name, username, password, bio: "", ip_address: ip
+                }]).select();
+
+                if (error) {
+                    if (error.code === '23505') return alert("Username already taken.");
+                    throw error;
+                }
+
+                alert("Account created! Please login.");
+                showView('login');
+            } catch (err) {
+                alert("Error: " + err.message);
+            }
+        };
+
+        window.handleLogin = async () => {
+            const username = document.getElementById('login-username').value.trim().toLowerCase();
+            const password = document.getElementById('login-password').value;
+
+            try {
+                const { data, error } = await sb.from('users').select('*').eq('username', username).eq('password', password).single();
+                
+                if (error || !data) return alert("Invalid username or password.");
+
+                currentUser = data;
+                localStorage.setItem('zdrop_user', JSON.stringify(data));
+                updateUIForUser();
+                fetchInbox(); // Fetch inbox on login
+                showView('menu');
+            } catch (err) {
+                alert("Login Error: " + err.message);
+            }
+        };
+
+        window.handleLogout = () => {
+            currentUser = null;
+            localStorage.removeItem('zdrop_user');
+            document.getElementById('user-display').classList.add('hidden');
+            showView('landing');
+        };
+
+        const updateUIForUser = () => {
+            if (!currentUser) return;
+            document.getElementById('user-display').classList.remove('hidden');
+            document.getElementById('nav-username').innerText = `@${currentUser.username}`;
+            document.getElementById('profile-name').innerText = currentUser.name;
+            document.getElementById('profile-username').innerText = `@${currentUser.username}`;
+            document.getElementById('profile-bio').value = currentUser.bio || "";
+            document.getElementById('bio-count').innerText = `${(currentUser.bio || "").length}/101`;
+            fetchInbox(); // Fetch inbox when UI updates
+        };
+
+        // --- Inbox Logic ---
+        window.fetchInbox = async () => {
+            if (!currentUser) return;
+            
+            try {
+                // 1. Auto-Purge Expired Drops (Older than 24 hours)
+                const twentyFourHoursAgo = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+                
+                // Fetch expired items first to delete from storage
+                const { data: expiredItems } = await sb
+                    .from('transfers')
+                    .select('id, file_path')
+                    .eq('receiver_username', currentUser.username)
+                    .lt('created_at', twentyFourHoursAgo);
+
+                if (expiredItems && expiredItems.length > 0) {
+                    for (const item of expiredItems) {
+                        await sb.storage.from('transfers').remove([item.file_path]);
+                        await sb.from('transfers').delete().eq('id', item.id);
+                    }
+                    console.log(`${expiredItems.length} expired drops purged.`);
+                }
+
+                // 2. Fetch Active Drops
+                const { data, error } = await sb
+                    .from('transfers')
+                    .select('*')
+                    .eq('receiver_username', currentUser.username)
+                    .gte('created_at', twentyFourHoursAgo) // Only show non-expired
+                    .order('created_at', { ascending: false });
+
+                if (error) throw error;
+
+                const list = document.getElementById('inbox-list');
+                const badge = document.getElementById('inbox-badge');
+                
+                if (data.length > 0) {
+                    badge.innerText = data.length;
+                    badge.classList.remove('hidden');
+                    
+                    list.innerHTML = data.map(item => `
+                        <div class="glass p-6 flex items-center gap-6 group">
+                            <div class="w-12 h-12 bg-white/5 rounded-xl flex items-center justify-center">
+                                <i data-lucide="lock" class="w-6 h-6 text-blue-500"></i>
+                            </div>
+                            <div class="flex-1">
+                                <h4 class="font-bold truncate max-w-[200px]">${item.file_name}</h4>
+                                <p class="text-[10px] uppercase tracking-widest opacity-40">${new Date(item.created_at).toLocaleString()}</p>
+                            </div>
+                            <div class="flex items-center gap-2">
+                                <button onclick="openInboxItem('${item.id}', '${item.password}')" class="p-3 bg-blue-600/10 hover:bg-blue-600 text-blue-500 hover:text-white rounded-xl transition-all">
+                                    <i data-lucide="unlock" class="w-5 h-5"></i>
+                                </button>
+                                <button onclick="deleteInboxItem('${item.id}', '${item.file_path}')" class="p-3 bg-red-600/10 hover:bg-red-600 text-red-500 hover:text-white rounded-xl transition-all">
+                                    <i data-lucide="trash-2" class="w-5 h-5"></i>
+                                </button>
+                            </div>
+                        </div>
+                    `).join('');
+                } else {
+                    badge.classList.add('hidden');
+                    list.innerHTML = `
+                        <div class="text-center py-20 opacity-20">
+                            <i data-lucide="inbox" class="w-16 h-16 mx-auto mb-4"></i>
+                            <p class="font-bold uppercase tracking-widest">Your inbox is empty</p>
+                        </div>
+                    `;
+                }
+                lucide.createIcons();
+            } catch (err) {
+                console.error("Inbox Error:", err);
+            }
+        };
+
+        window.openInboxItem = async (id, correctPassword) => {
+            const pass = prompt("Enter the Secret Password to unlock this file:");
+            if (!pass) return;
+
+            if (pass !== correctPassword) {
+                return alert("Incorrect password. Access denied.");
+            }
+
+            // If password matches, proceed to download
+            try {
+                const { data, error } = await sb.from('transfers').select('*').eq('id', id).single();
+                if (error) throw error;
+
+                const { data: fileBlob, error: dlError } = await sb.storage
+                    .from('transfers')
+                    .download(data.file_path);
+
+                if (dlError) throw dlError;
+
+                const url = URL.createObjectURL(fileBlob);
+                const link = document.createElement("a");
+                link.href = url;
+                link.download = data.file_name;
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+                URL.revokeObjectURL(url);
+            } catch (err) {
+                alert("Download Error: " + err.message);
+            }
+        };
+
+        window.deleteInboxItem = async (id, filePath) => {
+            if (!confirm("Are you sure you want to delete this file permanently?")) return;
+
+            try {
+                // 1. Delete from Storage
+                await sb.storage.from('transfers').remove([filePath]);
+                
+                // 2. Delete from Database
+                const { error } = await sb.from('transfers').delete().eq('id', id);
+                if (error) throw error;
+
+                alert("File deleted successfully.");
+                fetchInbox();
+            } catch (err) {
+                alert("Delete Error: " + err.message);
+            }
+        };
+
+        window.updateBio = async () => {
+            const bio = document.getElementById('profile-bio').value;
+            if (bio.length > 101) return alert("Bio too long!");
+
+            try {
+                const { error } = await sb.from('users').update({ bio }).eq('id', currentUser.id);
+                if (error) throw error;
+                currentUser.bio = bio;
+                localStorage.setItem('zdrop_user', JSON.stringify(currentUser));
+                alert("Bio updated!");
+            } catch (err) {
+                alert("Error: " + err.message);
+            }
+        };
+
+        // --- Send Logic ---
+        const dropzone = document.getElementById('dropzone');
+        const fileInput = document.getElementById('file-input');
+
+        dropzone.onclick = () => fileInput.click();
+        fileInput.onchange = (e) => handleFileSelection(e.target.files[0]);
+
+        const handleFileSelection = (file) => {
+            if (!file) return;
+            
+            // 3MB Limit Check
+            if (file.size > 3 * 1024 * 1024) {
+                alert("File too large! Maximum limit is 3MB.");
+                fileInput.value = "";
+                return;
+            }
+
+            selectedFile = file;
+            document.getElementById('dropzone-empty').classList.add('hidden');
+            document.getElementById('dropzone-file').classList.remove('hidden');
+            document.getElementById('file-name-display').innerText = file.name;
+        };
+
+        window.removeFile = (e) => {
+            e.stopPropagation();
+            selectedFile = null;
+            document.getElementById('dropzone-empty').classList.remove('hidden');
+            document.getElementById('dropzone-file').classList.add('hidden');
+            fileInput.value = "";
+        };
+
+        window.handleSend = async () => {
+            const receiver = document.getElementById('send-receiver').value.trim().toLowerCase();
+            const password = document.getElementById('send-password').value;
+            const desc = document.getElementById('send-desc').value;
+            const textContent = document.getElementById('send-text').value;
+            const btn = document.getElementById('send-btn');
+
+            if (!receiver || !password) {
+                alert("Receiver and Password are required.");
+                return;
+            }
+
+            let fileToUpload = selectedFile;
+            
+            if (textContent && !fileToUpload) {
+                fileToUpload = new File([textContent], "message.txt", { type: "text/plain" });
+            }
+
+            if (!fileToUpload) {
+                alert("Please select a file or type a message.");
+                return;
+            }
+
+            // Final 3MB check
+            if (fileToUpload.size > 3 * 1024 * 1024) {
+                alert("The content is too large! Maximum limit is 3MB.");
+                return;
+            }
+
+            btn.disabled = true;
+            btn.innerHTML = '<div class="loader"></div> INITIALIZING...';
+
+            try {
+                // 1. Upload to Supabase Storage
+                const fileExt = fileToUpload.name.split('.').pop();
+                const fileName = `${Math.random().toString(36).substring(2)}_${Date.now()}.${fileExt}`;
+                const filePath = `${receiver}/${fileName}`;
+
+                const { data: storageData, error: storageError } = await sb.storage
+                    .from('transfers')
+                    .upload(filePath, fileToUpload);
+
+                if (storageError) throw storageError;
+
+                // 2. Insert metadata into Database
+                const { error: dbError } = await sb.from('transfers').insert([{
+                    receiver_username: receiver,
+                    password: password,
+                    description: desc,
+                    file_name: fileToUpload.name,
+                    file_path: filePath,
+                    created_at: new Date().toISOString()
+                }]);
+
+                if (dbError) throw dbError;
+
+                alert("Drop Initialized Successfully!");
+                showView('menu');
+                // Reset
+                document.getElementById('send-receiver').value = "";
+                document.getElementById('send-password').value = "";
+                document.getElementById('send-desc').value = "";
+                document.getElementById('send-text').value = "";
+                removeFile({ stopPropagation: () => {} });
+            } catch (err) {
+                console.error(err);
+                alert("Supabase Error: " + err.message);
+            } finally {
+                btn.disabled = false;
+                btn.innerHTML = 'INITIALIZE DROP <i data-lucide="zap" class="w-5 h-5"></i>';
+                lucide.createIcons();
+            }
+        };
+
+        // --- Receive Logic ---
+        window.handleReceive = async () => {
+            const username = document.getElementById('receive-username').value.trim().toLowerCase();
+            const password = document.getElementById('receive-password').value;
+            const btn = document.getElementById('receive-btn');
+            const result = document.getElementById('receive-result');
+
+            if (!username || !password) return;
+
+            btn.disabled = true;
+            btn.innerHTML = '<div class="loader"></div> DECRYPTING...';
+            result.classList.add('hidden');
+
+            try {
+                const { data, error } = await sb
+                    .from('transfers')
+                    .select('*')
+                    .eq('receiver_username', username)
+                    .eq('password', password)
+                    .order('created_at', { ascending: false })
+                    .limit(1);
+
+                if (error) throw error;
+
+                if (data && data.length > 0) {
+                    const transfer = data[0];
+                    result.classList.remove('hidden');
+                    document.getElementById('res-filename').innerText = transfer.file_name;
+                    document.getElementById('res-desc').innerText = transfer.description || "No description provided.";
+                    
+                    const dlBtn = document.getElementById('download-btn');
+                    dlBtn.onclick = async () => {
+                        dlBtn.innerHTML = '<div class="loader"></div>';
+                        try {
+                            const { data: fileBlob, error: dlError } = await sb.storage
+                                .from('transfers')
+                                .download(transfer.file_path);
+
+                            if (dlError) throw dlError;
+
+                            const url = URL.createObjectURL(fileBlob);
+                            const link = document.createElement("a");
+                            link.href = url;
+                            link.download = transfer.file_name;
+                            document.body.appendChild(link);
+                            link.click();
+                            document.body.removeChild(link);
+                            URL.revokeObjectURL(url);
+                        } catch (err) {
+                            alert("Download Error: " + err.message);
+                        } finally {
+                            dlBtn.innerHTML = '<i data-lucide="download" class="w-6 h-6"></i>';
+                            lucide.createIcons();
+                        }
+                    };
+                } else {
+                    alert("Invalid credentials or file expired.");
+                }
+            } catch (err) {
+                console.error(err);
+                alert("Error: " + err.message);
+            } finally {
+                btn.disabled = false;
+                btn.innerHTML = 'DECRYPT & OPEN <i data-lucide="unlock" class="w-5 h-5"></i>';
+                lucide.createIcons();
+            }
+        };
+    </script>
+</body>
+</html>
