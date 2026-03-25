@@ -204,6 +204,25 @@
         <div class="noise"></div>
     </div>
 
+    <div id="toast-container" class="fixed top-8 right-8 z-[110] flex flex-col gap-4 pointer-events-none"></div>
+
+    <div id="custom-modal" class="fixed inset-0 z-[120] hidden flex items-center justify-center p-6">
+        <div class="absolute inset-0 bg-black/80 backdrop-blur-sm" onclick="closeModal()"></div>
+        <div class="glass max-w-md w-full p-8 space-y-6 relative animate-in fade-in zoom-in duration-300">
+            <div class="text-center space-y-2">
+                <h3 id="modal-title" class="text-2xl font-black tracking-tight">TITLE</h3>
+                <p id="modal-desc" class="text-sm opacity-40">Description goes here.</p>
+            </div>
+            <div id="modal-content" class="space-y-4">
+                <!-- Dynamic content -->
+            </div>
+            <div class="flex gap-4 pt-4">
+                <button id="modal-cancel" onclick="closeModal()" class="flex-1 py-4 rounded-2xl font-bold text-xs uppercase tracking-widest bg-white/5 hover:bg-white/10 transition-colors">Cancel</button>
+                <button id="modal-confirm" class="flex-1 py-4 rounded-2xl font-bold text-xs uppercase tracking-widest bg-blue-600 text-white shadow-lg shadow-blue-600/20">Confirm</button>
+            </div>
+        </div>
+    </div>
+
     <!-- Intro Animation -->
     <div id="intro-screen" class="fixed inset-0 z-[100] flex items-center justify-center bg-black">
         <h1 class="intro-text animate-intro">Z DROP</h1>
@@ -244,7 +263,7 @@
                     <p class="text-white/40 max-w-lg mx-auto text-lg" style="color: var(--text-muted)">Secure, ephemeral file sharing. Choose your portal entry.</p>
                 </div>
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
-                    <div class="glass glass-hover p-10 cursor-pointer group" onclick="showView('signup')">
+                    <div id="landing-signup-card" class="glass glass-hover p-10 cursor-pointer group" onclick="showView('signup')">
                         <div class="space-y-8">
                             <div class="w-20 h-20 bg-blue-600 rounded-3xl flex items-center justify-center group-hover:scale-110 transition-transform shadow-2xl shadow-blue-600/40">
                                 <i data-lucide="user-plus" class="w-10 h-10 text-white"></i>
@@ -267,7 +286,7 @@
                         </div>
                     </div>
                 </div>
-                <div class="mt-12 text-center">
+                <div id="landing-login-footer" class="mt-12 text-center">
                     <p class="text-sm" style="color: var(--text-muted)">Already have an account? <button onclick="showView('login')" class="text-blue-500 font-bold hover:underline">Login here</button></p>
                 </div>
             </div>
@@ -564,6 +583,67 @@
         // --- State ---
         let selectedFile = null;
         let currentUser = null;
+        let inboxSubscription = null;
+
+        // --- Sounds ---
+        const sounds = {
+            send: new Audio('https://assets.mixkit.co/active_storage/sfx/2358/2358-preview.mp3'),
+            receive: new Audio('https://assets.mixkit.co/active_storage/sfx/2354/2354-preview.mp3'),
+            error: new Audio('https://assets.mixkit.co/active_storage/sfx/2357/2357-preview.mp3'),
+            notify: new Audio('https://assets.mixkit.co/active_storage/sfx/2359/2359-preview.mp3')
+        };
+
+        const playSound = (name) => {
+            try {
+                sounds[name].currentTime = 0;
+                sounds[name].play();
+            } catch (e) {}
+        };
+
+        // --- UI Helpers ---
+        window.showToast = (message, type = 'info') => {
+            const container = document.getElementById('toast-container');
+            const toast = document.createElement('div');
+            const colors = {
+                success: 'bg-green-600',
+                error: 'bg-red-600',
+                info: 'bg-blue-600'
+            };
+            
+            toast.className = `glass ${colors[type]} p-4 px-6 rounded-2xl text-white font-bold text-sm shadow-2xl animate-in slide-in-from-right-full duration-300 flex items-center gap-3 pointer-events-auto`;
+            toast.innerHTML = `
+                <i data-lucide="${type === 'success' ? 'check-circle' : type === 'error' ? 'alert-circle' : 'info'}" class="w-5 h-5"></i>
+                <span>${message}</span>
+            `;
+            
+            container.appendChild(toast);
+            lucide.createIcons();
+            
+            setTimeout(() => {
+                toast.classList.add('animate-out', 'fade-out', 'slide-out-to-right-full');
+                setTimeout(() => toast.remove(), 300);
+            }, 4000);
+        };
+
+        window.showModal = (title, desc, contentHtml, onConfirm) => {
+            const modal = document.getElementById('custom-modal');
+            document.getElementById('modal-title').innerText = title;
+            document.getElementById('modal-desc').innerText = desc;
+            const content = document.getElementById('modal-content');
+            content.innerHTML = contentHtml;
+            
+            const confirmBtn = document.getElementById('modal-confirm');
+            confirmBtn.onclick = () => {
+                onConfirm();
+                closeModal();
+            };
+            
+            modal.classList.remove('hidden');
+        };
+
+        window.closeModal = () => {
+            document.getElementById('custom-modal').classList.add('hidden');
+        };
 
         // --- Init ---
         window.onload = () => {
@@ -634,18 +714,18 @@
             const password = document.getElementById('signup-password').value;
 
             // Validation
-            if (!name || !username || !password) return alert("All fields are required.");
+            if (!name || !username || !password) return showToast("All fields are required.", "error");
             
             // Name validation (Real name check - basic)
-            if (!/^[a-zA-Z\s]+$/.test(name)) return alert("Please enter a valid real name (letters only).");
+            if (!/^[a-zA-Z\s]+$/.test(name)) return showToast("Please enter a valid real name (letters only).", "error");
             
             // Username validation (Single word)
-            if (username.includes(" ") || !/^[a-z0-9]+$/.test(username)) return alert("Username must be a single word with no special characters.");
+            if (username.includes(" ") || !/^[a-z0-9]+$/.test(username)) return showToast("Username must be a single word with no special characters.", "error");
 
             // Password validation (8 chars, strong)
-            if (password.length < 8) return alert("Password must be at least 8 characters long.");
+            if (password.length < 8) return showToast("Password must be at least 8 characters long.", "error");
             const strongRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*[0-9])(?=.*[!@#$%^&*])/;
-            if (!strongRegex.test(password)) return alert("Password must be strong (include uppercase, lowercase, number, and special character).");
+            if (!strongRegex.test(password)) return showToast("Password must be strong (include uppercase, lowercase, number, and special character).", "error");
 
             try {
                 // Fetch IP for spam prevention
@@ -655,7 +735,7 @@
                 // Check if IP already has an account
                 const { data: existingIP, error: ipError } = await sb.from('users').select('id').eq('ip_address', ip).limit(1);
                 if (existingIP && existingIP.length > 0) {
-                    return alert("Only one account allowed per device/IP to prevent spam.");
+                    return showToast("Only one account allowed per device/IP to prevent spam.", "error");
                 }
 
                 const { data, error } = await sb.from('users').insert([{
@@ -663,14 +743,14 @@
                 }]).select();
 
                 if (error) {
-                    if (error.code === '23505') return alert("Username already taken.");
+                    if (error.code === '23505') return showToast("Username already taken.", "error");
                     throw error;
                 }
 
-                alert("Account created! Please login.");
+                showToast("Account created! Please login.", "success");
                 showView('login');
             } catch (err) {
-                alert("Error: " + err.message);
+                showToast("Error: " + err.message, "error");
             }
         };
 
@@ -681,37 +761,75 @@
             try {
                 const { data, error } = await sb.from('users').select('*').eq('username', username).eq('password', password).single();
                 
-                if (error || !data) return alert("Invalid username or password.");
+                if (error || !data) return showToast("Invalid username or password.", "error");
 
                 currentUser = data;
                 localStorage.setItem('zdrop_user', JSON.stringify(data));
                 updateUIForUser();
                 fetchInbox(); // Fetch inbox on login
                 showView('menu');
+                showToast(`Welcome back, ${currentUser.name}!`, "success");
             } catch (err) {
-                alert("Login Error: " + err.message);
+                showToast("Login Error: " + err.message, "error");
             }
         };
 
         window.handleLogout = () => {
+            if (inboxSubscription) {
+                sb.removeChannel(inboxSubscription);
+                inboxSubscription = null;
+            }
             currentUser = null;
             localStorage.removeItem('zdrop_user');
             document.getElementById('user-display').classList.add('hidden');
+            document.getElementById('landing-signup-card').classList.remove('hidden');
+            document.getElementById('landing-login-footer').classList.remove('hidden');
             showView('landing');
+            showToast("Logged out successfully.", "info");
         };
 
         const updateUIForUser = () => {
             if (!currentUser) return;
             document.getElementById('user-display').classList.remove('hidden');
+            document.getElementById('landing-signup-card').classList.add('hidden');
+            document.getElementById('landing-login-footer').classList.add('hidden');
             document.getElementById('nav-username').innerText = `@${currentUser.username}`;
             document.getElementById('profile-name').innerText = currentUser.name;
             document.getElementById('profile-username').innerText = `@${currentUser.username}`;
             document.getElementById('profile-bio').value = currentUser.bio || "";
             document.getElementById('bio-count').innerText = `${(currentUser.bio || "").length}/101`;
             if (window.fetchInbox) window.fetchInbox(); // Fetch inbox when UI updates
+            subscribeToInbox(); // Start real-time listener
         };
 
         // --- Inbox Logic ---
+        const subscribeToInbox = () => {
+            if (!currentUser || !sb) return;
+            
+            // Remove existing subscription if any
+            if (inboxSubscription) {
+                sb.removeChannel(inboxSubscription);
+            }
+
+            inboxSubscription = sb.channel('inbox-realtime')
+                .on('postgres_changes', { 
+                    event: '*', 
+                    schema: 'public', 
+                    table: 'transfers',
+                    filter: `receiver_username=eq.${currentUser.username}`
+                }, (payload) => {
+                    console.log('Real-time update received:', payload);
+                    fetchInbox(); // Refresh inbox UI
+                    if (payload.eventType === 'INSERT') {
+                        playSound('notify');
+                        showToast("New file received in your inbox!", "success");
+                    }
+                })
+                .subscribe((status) => {
+                    console.log('Real-time subscription status:', status);
+                });
+        };
+
         window.fetchInbox = async () => {
             if (!currentUser || !sb) return;
             
@@ -786,67 +904,83 @@
         };
 
         window.openInboxItem = async (id, correctPassword) => {
-            const pass = prompt("Enter the Secret Password to unlock this file:");
-            if (!pass) return;
+            showModal(
+                "Unlock File",
+                "Enter the secret password to decrypt and download this file.",
+                `<input id="modal-pass-input" type="password" placeholder="••••••••" class="input-field">`,
+                async () => {
+                    const pass = document.getElementById('modal-pass-input').value;
+                    if (!pass) return;
 
-            if (pass !== correctPassword) {
-                return alert("Incorrect password. Access denied.");
-            }
+                    if (pass !== correctPassword) {
+                        playSound('error');
+                        return showToast("Incorrect password. Access denied.", "error");
+                    }
 
-            // If password matches, proceed to download
-            try {
-                const { data, error } = await sb.from('transfers').select('*').eq('id', id).single();
-                if (error) throw error;
+                    // If password matches, proceed to download
+                    try {
+                        const { data, error } = await sb.from('transfers').select('*').eq('id', id).single();
+                        if (error) throw error;
 
-                const { data: fileBlob, error: dlError } = await sb.storage
-                    .from('transfers')
-                    .download(data.file_path);
+                        const { data: fileBlob, error: dlError } = await sb.storage
+                            .from('transfers')
+                            .download(data.file_path);
 
-                if (dlError) throw dlError;
+                        if (dlError) throw dlError;
 
-                const url = URL.createObjectURL(fileBlob);
-                const link = document.createElement("a");
-                link.href = url;
-                link.download = data.file_name;
-                document.body.appendChild(link);
-                link.click();
-                document.body.removeChild(link);
-                URL.revokeObjectURL(url);
-            } catch (err) {
-                alert("Download Error: " + err.message);
-            }
+                        const url = URL.createObjectURL(fileBlob);
+                        const link = document.createElement("a");
+                        link.href = url;
+                        link.download = data.file_name;
+                        document.body.appendChild(link);
+                        link.click();
+                        document.body.removeChild(link);
+                        URL.revokeObjectURL(url);
+                        
+                        playSound('receive');
+                        showToast("File decrypted and downloaded!", "success");
+                    } catch (err) {
+                        showToast("Download Error: " + err.message, "error");
+                    }
+                }
+            );
         };
 
         window.deleteInboxItem = async (id, filePath) => {
-            if (!confirm("Are you sure you want to delete this file permanently?")) return;
+            showModal(
+                "Delete File",
+                "Are you sure you want to delete this file permanently? This action cannot be undone.",
+                `<p class="text-xs text-red-500 font-bold uppercase tracking-widest text-center">Permanent Destruction</p>`,
+                async () => {
+                    try {
+                        // 1. Delete from Storage
+                        await sb.storage.from('transfers').remove([filePath]);
+                        
+                        // 2. Delete from Database
+                        const { error } = await sb.from('transfers').delete().eq('id', id);
+                        if (error) throw error;
 
-            try {
-                // 1. Delete from Storage
-                await sb.storage.from('transfers').remove([filePath]);
-                
-                // 2. Delete from Database
-                const { error } = await sb.from('transfers').delete().eq('id', id);
-                if (error) throw error;
-
-                alert("File deleted successfully.");
-                fetchInbox();
-            } catch (err) {
-                alert("Delete Error: " + err.message);
-            }
+                        showToast("File deleted successfully.", "success");
+                        fetchInbox();
+                    } catch (err) {
+                        showToast("Delete Error: " + err.message, "error");
+                    }
+                }
+            );
         };
 
         window.updateBio = async () => {
             const bio = document.getElementById('profile-bio').value;
-            if (bio.length > 101) return alert("Bio too long!");
+            if (bio.length > 101) return showToast("Bio too long!", "error");
 
             try {
                 const { error } = await sb.from('users').update({ bio }).eq('id', currentUser.id);
                 if (error) throw error;
                 currentUser.bio = bio;
                 localStorage.setItem('zdrop_user', JSON.stringify(currentUser));
-                alert("Bio updated!");
+                showToast("Bio updated!", "success");
             } catch (err) {
-                alert("Error: " + err.message);
+                showToast("Error: " + err.message, "error");
             }
         };
 
@@ -862,7 +996,8 @@
             
             // 3MB Limit Check
             if (file.size > 3 * 1024 * 1024) {
-                alert("File too large! Maximum limit is 3MB.");
+                playSound('error');
+                showToast("File too large! Maximum limit is 3MB.", "error");
                 fileInput.value = "";
                 return;
             }
@@ -889,7 +1024,8 @@
             const btn = document.getElementById('send-btn');
 
             if (!receiver || !password) {
-                alert("Receiver and Password are required.");
+                playSound('error');
+                showToast("Receiver and Password are required.", "error");
                 return;
             }
 
@@ -900,13 +1036,15 @@
             }
 
             if (!fileToUpload) {
-                alert("Please select a file or type a message.");
+                playSound('error');
+                showToast("Please select a file or type a message.", "error");
                 return;
             }
 
             // Final 3MB check
             if (fileToUpload.size > 3 * 1024 * 1024) {
-                alert("The content is too large! Maximum limit is 3MB.");
+                playSound('error');
+                showToast("The content is too large! Maximum limit is 3MB.", "error");
                 return;
             }
 
@@ -937,7 +1075,8 @@
 
                 if (dbError) throw dbError;
 
-                alert("Drop Initialized Successfully!");
+                playSound('send');
+                showToast("Drop Initialized Successfully!", "success");
                 showView('menu');
                 // Reset
                 document.getElementById('send-receiver').value = "";
@@ -947,7 +1086,8 @@
                 removeFile({ stopPropagation: () => {} });
             } catch (err) {
                 console.error(err);
-                alert("Supabase Error: " + err.message);
+                playSound('error');
+                showToast("Supabase Error: " + err.message, "error");
             } finally {
                 btn.disabled = false;
                 btn.innerHTML = 'INITIALIZE DROP <i data-lucide="zap" class="w-5 h-5"></i>';
@@ -1003,19 +1143,26 @@
                             link.click();
                             document.body.removeChild(link);
                             URL.revokeObjectURL(url);
+                            playSound('receive');
+                            showToast("File downloaded!", "success");
                         } catch (err) {
-                            alert("Download Error: " + err.message);
+                            playSound('error');
+                            showToast("Download Error: " + err.message, "error");
                         } finally {
                             dlBtn.innerHTML = '<i data-lucide="download" class="w-6 h-6"></i>';
                             lucide.createIcons();
                         }
                     };
+                    playSound('receive');
+                    showToast("File decrypted successfully!", "success");
                 } else {
-                    alert("Invalid credentials or file expired.");
+                    playSound('error');
+                    showToast("Invalid credentials or file expired.", "error");
                 }
             } catch (err) {
                 console.error(err);
-                alert("Error: " + err.message);
+                playSound('error');
+                showToast("Error: " + err.message, "error");
             } finally {
                 btn.disabled = false;
                 btn.innerHTML = 'DECRYPT & OPEN <i data-lucide="unlock" class="w-5 h-5"></i>';
