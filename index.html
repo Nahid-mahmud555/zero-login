@@ -668,9 +668,22 @@
 
                 // Session Check
                 const savedUser = localStorage.getItem('zdrop_user');
-                if (savedUser) {
-                    currentUser = JSON.parse(savedUser);
-                    updateUIForUser();
+                if (savedUser && sb) {
+                    const parsedUser = JSON.parse(savedUser);
+                    // Verify if user still exists in DB
+                    sb.from('users').select('*').eq('id', parsedUser.id).single().then(({ data, error }) => {
+                        if (data && !error) {
+                            currentUser = data;
+                            localStorage.setItem('zdrop_user', JSON.stringify(data));
+                            updateUIForUser();
+                            fetchInbox(); // Fetch inbox on load if user exists
+                        } else {
+                            // User no longer exists or error
+                            localStorage.removeItem('zdrop_user');
+                            currentUser = null;
+                            showView('landing');
+                        }
+                    });
                 }
 
                 // Bio counter
@@ -728,18 +741,8 @@
             if (!strongRegex.test(password)) return showToast("Password must be strong (include uppercase, lowercase, number, and special character).", "error");
 
             try {
-                // Fetch IP for spam prevention
-                const ipRes = await fetch('https://api.ipify.org?format=json');
-                const { ip } = await ipRes.json();
-
-                // Check if IP already has an account
-                const { data: existingIP, error: ipError } = await sb.from('users').select('id').eq('ip_address', ip).limit(1);
-                if (existingIP && existingIP.length > 0) {
-                    return showToast("Only one account allowed per device/IP to prevent spam.", "error");
-                }
-
                 const { data, error } = await sb.from('users').insert([{
-                    name, username, password, bio: "", ip_address: ip
+                    name, username, password, bio: ""
                 }]).select();
 
                 if (error) {
@@ -833,6 +836,13 @@
         window.fetchInbox = async () => {
             if (!currentUser || !sb) return;
             
+            // Verify user still exists in DB
+            const { data: userCheck, error: userError } = await sb.from('users').select('id').eq('id', currentUser.id).single();
+            if (userError || !userCheck) {
+                handleLogout();
+                return;
+            }
+
             try {
                 // 1. Auto-Purge Expired Drops (Older than 24 hours)
                 const twentyFourHoursAgo = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
@@ -974,8 +984,11 @@
             if (bio.length > 101) return showToast("Bio too long!", "error");
 
             try {
-                const { error } = await sb.from('users').update({ bio }).eq('id', currentUser.id);
-                if (error) throw error;
+                const { error, data } = await sb.from('users').update({ bio }).eq('id', currentUser.id).select();
+                if (error || !data || data.length === 0) {
+                    handleLogout();
+                    return;
+                }
                 currentUser.bio = bio;
                 localStorage.setItem('zdrop_user', JSON.stringify(currentUser));
                 showToast("Bio updated!", "success");
