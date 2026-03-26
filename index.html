@@ -3,6 +3,10 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <!-- Cache Prevention -->
+    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+    <meta http-equiv="Pragma" content="no-cache">
+    <meta http-equiv="Expires" content="0">
     <title>Z DROP | SECURE PORTAL</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://unpkg.com/lucide@latest"></script>
@@ -855,7 +859,10 @@
                             currentUser = null;
                             showView('landing');
                         }
+                        subscribeToInbox(); // Start real-time listener after session check
                     });
+                } else {
+                    subscribeToInbox(); // Start real-time listener for public drops even if not logged in
                 }
 
                 // Bio counter
@@ -966,6 +973,7 @@
             
             showView('landing');
             showToast("Logged out successfully.", "info");
+            subscribeToInbox(); // Re-subscribe for public drops only
         };
 
         const updateUIForUser = () => {
@@ -995,30 +1003,46 @@
 
         // --- Inbox Logic ---
         const subscribeToInbox = () => {
-            if (!currentUser || !sb) return;
+            if (!sb) return;
             
             // Remove existing subscription if any
             if (inboxSubscription) {
                 sb.removeChannel(inboxSubscription);
             }
 
-            inboxSubscription = sb.channel('inbox-realtime')
-                .on('postgres_changes', { 
-                    event: '*', 
+            // Create a channel for both private and public notifications
+            const channel = sb.channel('portal-realtime');
+            
+            // 1. Listen for Private Drops (only if logged in)
+            if (currentUser) {
+                channel.on('postgres_changes', { 
+                    event: 'INSERT', 
                     schema: 'public', 
                     table: 'transfers',
                     filter: `receiver_username=eq.${currentUser.username}`
                 }, (payload) => {
-                    console.log('Real-time update received:', payload);
-                    fetchInbox(); // Refresh inbox UI
-                    if (payload.eventType === 'INSERT') {
-                        playSound('notify');
-                        showToast("New file received in your inbox!", "success");
-                    }
-                })
-                .subscribe((status) => {
-                    console.log('Real-time subscription status:', status);
+                    console.log('Private drop received:', payload);
+                    fetchInbox(); 
+                    playSound('notify');
+                    showToast(`New private drop from ${payload.new.sender_nickname}!`, "success");
                 });
+            }
+
+            // 2. Listen for Public Drops (for everyone)
+            channel.on('postgres_changes', { 
+                event: 'INSERT', 
+                schema: 'public', 
+                table: 'transfers',
+                filter: 'is_public=eq.true'
+            }, (payload) => {
+                console.log('Public drop received:', payload);
+                playSound('notify');
+                showToast(`New Public Drop available! Code: ${payload.new.public_code}`, "info");
+            });
+
+            inboxSubscription = channel.subscribe((status) => {
+                console.log('Real-time subscription status:', status);
+            });
         };
 
         window.fetchInbox = async () => {
