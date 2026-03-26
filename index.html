@@ -373,8 +373,13 @@
             <div id="view-profile" class="view fade-in">
                 <div class="max-w-2xl mx-auto space-y-8">
                     <div class="flex items-center justify-between">
-                        <h2 class="text-4xl font-black tracking-tight">USER <span class="text-blue-500">PROFILE</span></h2>
-                        <button onclick="handleLogout()" class="text-red-500 font-bold text-xs uppercase tracking-widest hover:underline">Logout</button>
+                        <div class="flex items-center gap-4">
+                            <button onclick="showView('menu')" class="p-3 bg-white/5 hover:bg-white/10 rounded-2xl transition-colors" style="background: var(--input-bg)">
+                                <i data-lucide="chevron-left" class="w-6 h-6"></i>
+                            </button>
+                            <h2 class="text-4xl font-black tracking-tight">USER <span class="text-blue-500">PROFILE</span></h2>
+                        </div>
+                        <button id="logout-btn" onclick="handleLogout()" class="text-red-500 font-bold text-xs uppercase tracking-widest hover:underline">Logout</button>
                     </div>
                     <div class="glass p-10 space-y-8">
                         <div class="flex items-center gap-6">
@@ -386,13 +391,13 @@
                                 <p id="profile-username" class="text-blue-500 font-bold">@username</p>
                             </div>
                         </div>
-                        <div class="space-y-4">
+                        <div id="bio-section" class="space-y-4">
                             <div class="flex justify-between items-center">
                                 <label class="text-[10px] font-bold uppercase tracking-[0.2em]" style="color: var(--text-muted)">Bio (Max 101 Letters)</label>
                                 <span id="bio-count" class="text-[10px] font-bold" style="color: var(--text-muted)">0/101</span>
                             </div>
                             <textarea id="profile-bio" maxlength="101" placeholder="Tell us about yourself..." class="input-field min-h-[120px] resize-none"></textarea>
-                            <button onclick="updateBio()" class="btn-action w-full bg-white/5 py-4 rounded-2xl font-bold text-sm tracking-widest hover:bg-white/10 transition-colors" style="background: var(--input-bg)">
+                            <button id="save-bio-btn" onclick="updateBio()" class="btn-action w-full bg-white/5 py-4 rounded-2xl font-bold text-sm tracking-widest hover:bg-white/10 transition-colors" style="background: var(--input-bg)">
                                 SAVE BIO
                             </button>
                         </div>
@@ -897,6 +902,29 @@
             document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
             document.getElementById(`view-${viewName}`).classList.add('active');
             window.scrollTo(0, 0);
+
+            // Clear inputs when switching to send or receive
+            if (viewName === 'send' || viewName === 'receive') {
+                const inputs = document.querySelectorAll(`#view-${viewName} input, #view-${viewName} textarea`);
+                inputs.forEach(input => {
+                    if (input.type !== 'file') input.value = '';
+                });
+                // Reset file dropzone if in send view
+                if (viewName === 'send') {
+                    selectedFile = null;
+                    document.getElementById('file-info').classList.add('hidden');
+                    document.getElementById('dropzone-file').classList.remove('hidden');
+                }
+            }
+
+            // Reset inbox badge when inbox is opened
+            if (viewName === 'inbox') {
+                const badge = document.getElementById('inbox-badge');
+                if (badge) {
+                    badge.classList.add('hidden');
+                    badge.innerText = '0';
+                }
+            }
         };
 
         // --- Auth Logic ---
@@ -976,6 +1004,44 @@
             subscribeToInbox(); // Re-subscribe for public drops only
         };
 
+        window.showUserProfile = async (username) => {
+            if (!username || username === 'null' || username === 'undefined') return showToast("User profile not available.", "info");
+            try {
+                const { data, error } = await sb.from('users').select('*').eq('username', username).single();
+                if (error || !data) return showToast("User profile not found.", "error");
+
+                document.getElementById('profile-name').innerText = data.name;
+                document.getElementById('profile-username').innerText = `@${data.username}`;
+                document.getElementById('profile-bio').value = data.bio || "";
+                document.getElementById('bio-count').innerText = `${(data.bio || "").length}/101`;
+
+                // Hide edit controls if not current user
+                const isMe = currentUser && currentUser.username === data.username;
+                document.getElementById('logout-btn').style.display = isMe ? 'block' : 'none';
+                document.getElementById('bio-section').style.display = isMe ? 'block' : 'none';
+                
+                // If not me, show bio as read-only text if it exists
+                let publicBio = document.getElementById('public-bio');
+                if (!publicBio) {
+                    publicBio = document.createElement('div');
+                    publicBio.id = 'public-bio';
+                    publicBio.className = 'p-6 bg-white/5 rounded-2xl text-sm leading-relaxed opacity-80';
+                    document.getElementById('bio-section').parentNode.insertBefore(publicBio, document.getElementById('bio-section'));
+                }
+                
+                if (!isMe) {
+                    publicBio.innerText = data.bio || "No bio available.";
+                    publicBio.classList.remove('hidden');
+                } else {
+                    publicBio.classList.add('hidden');
+                }
+
+                showView('profile');
+            } catch (err) {
+                showToast("Error loading profile.", "error");
+            }
+        };
+
         const updateUIForUser = () => {
             if (!currentUser) return;
             document.getElementById('user-display').classList.remove('hidden');
@@ -987,6 +1053,12 @@
             document.getElementById('profile-bio').value = currentUser.bio || "";
             document.getElementById('bio-count').innerText = `${(currentUser.bio || "").length}/101`;
             
+            // Reset profile view to "My Profile" mode
+            document.getElementById('logout-btn').style.display = 'block';
+            document.getElementById('bio-section').style.display = 'block';
+            const publicBio = document.getElementById('public-bio');
+            if (publicBio) publicBio.classList.add('hidden');
+
             // Update Menu User Info Bar
             const infoBar = document.getElementById('user-info-bar');
             if (infoBar) {
@@ -1101,7 +1173,7 @@
                             <div class="flex-1">
                                 <div class="flex items-center gap-2 mb-1">
                                     <h4 class="font-bold truncate max-w-[200px]">${item.file_name}</h4>
-                                    <span class="text-[10px] px-2 py-0.5 bg-blue-500/10 text-blue-500 rounded-full font-black uppercase tracking-widest">${item.sender_nickname || 'Anonymous'}</span>
+                                    <span onclick="showUserProfile('${item.sender_username}')" class="text-[10px] px-2 py-0.5 bg-blue-500/10 text-blue-500 rounded-full font-black uppercase tracking-widest cursor-pointer hover:bg-blue-500 hover:text-white transition-colors">${item.sender_nickname || 'Anonymous'}</span>
                                     ${item.is_public ? `<span class="text-[10px] px-2 py-0.5 bg-green-500/10 text-green-500 rounded-full font-black uppercase tracking-widest">Public</span>` : ''}
                                 </div>
                                 <p class="text-[10px] uppercase tracking-widest opacity-40">${new Date(item.created_at).toLocaleString()}</p>
@@ -1269,10 +1341,20 @@
             const textContent = document.getElementById('send-text').value;
             const btn = document.getElementById('send-btn');
 
-            if (currentTransferMode === 'private' && (!receiver || !password)) {
-                playSound('error');
-                showToast("Receiver and Password are required for private drops.", "error");
-                return;
+            if (currentTransferMode === 'private') {
+                if (!receiver || !password || !nickname) {
+                    playSound('error');
+                    showToast("Receiver, Password, and Your Nickname are required for private drops.", "error");
+                    return;
+                }
+
+                // Check if receiver exists in users table
+                const { data: userExists, error: userError } = await sb.from('users').select('id').eq('username', receiver).single();
+                if (userError || !userExists) {
+                    playSound('error');
+                    showToast("User available nah (Receiver username not found).", "error");
+                    return;
+                }
             }
 
             let fileToUpload = selectedFile;
@@ -1301,16 +1383,6 @@
                 let publicCode = null;
                 if (currentTransferMode === 'public') {
                     publicCode = await generateUniqueCode();
-                } else {
-                    // Check for duplicate username in active transfers
-                    const { data: existing } = await sb.from('transfers')
-                        .select('id')
-                        .eq('receiver_username', receiver)
-                        .limit(1);
-                    
-                    if (existing && existing.length > 0) {
-                        throw new Error("This username is already taken for an active transfer. Please choose another.");
-                    }
                 }
 
                 // 1. Upload to Supabase Storage
@@ -1330,7 +1402,8 @@
                     password: currentTransferMode === 'private' ? password : null,
                     is_public: currentTransferMode === 'public',
                     public_code: publicCode,
-                    sender_nickname: nickname || (currentUser ? currentUser.name : 'Anonymous'),
+                    sender_nickname: nickname,
+                    sender_username: currentUser ? currentUser.username : null,
                     description: desc,
                     file_name: fileToUpload.name,
                     file_path: filePath,
