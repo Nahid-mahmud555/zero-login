@@ -1173,7 +1173,7 @@
                             <div class="flex-1">
                                 <div class="flex items-center gap-2 mb-1">
                                     <h4 class="font-bold truncate max-w-[200px]">${item.file_name}</h4>
-                                    <span onclick="showUserProfile('${item.sender_username}')" class="text-[10px] px-2 py-0.5 bg-blue-500/10 text-blue-500 rounded-full font-black uppercase tracking-widest cursor-pointer hover:bg-blue-500 hover:text-white transition-colors">${item.sender_nickname || 'Anonymous'}</span>
+                                    <span class="text-[10px] px-2 py-0.5 bg-blue-500/10 text-blue-500 rounded-full font-black uppercase tracking-widest">${item.sender_nickname || 'Anonymous'}</span>
                                     ${item.is_public ? `<span class="text-[10px] px-2 py-0.5 bg-green-500/10 text-green-500 rounded-full font-black uppercase tracking-widest">Public</span>` : ''}
                                 </div>
                                 <p class="text-[10px] uppercase tracking-widest opacity-40">${new Date(item.created_at).toLocaleString()}</p>
@@ -1403,7 +1403,6 @@
                     is_public: currentTransferMode === 'public',
                     public_code: publicCode,
                     sender_nickname: nickname,
-                    sender_username: currentUser ? currentUser.username : null,
                     description: desc,
                     file_name: fileToUpload.name,
                     file_path: filePath,
