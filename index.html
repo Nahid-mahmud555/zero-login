@@ -597,13 +597,11 @@
                             <button onclick="setReceiveMode('public')" id="recv-mode-public" class="flex-1 py-3 rounded-xl text-[10px] font-bold uppercase tracking-widest transition-all text-white/40">Public Search</button>
                         </div>
 
-                        <div class="space-y-6">
+                        <div id="receive-private-fields" class="space-y-6">
                             <div class="space-y-2">
                                 <label class="text-[10px] font-bold uppercase tracking-[0.2em] ml-1" style="color: var(--text-muted)">Receiver Username</label>
                                 <input id="receive-username" type="text" placeholder="@username" class="input-field">
                             </div>
-                        </div>
-                        <div id="receive-private-fields" class="space-y-6">
                             <div class="space-y-2">
                                 <label class="text-[10px] font-bold uppercase tracking-[0.2em] ml-1" style="color: var(--text-muted)">Secret Password</label>
                                 <input id="receive-password" type="password" placeholder="••••••••" class="input-field">
@@ -1537,23 +1535,27 @@
             const password = passField.value;
             const code = codeField.value.trim();
 
-            if (!username) {
+            if (currentReceiveMode === 'private' && !username) {
                 playSound('error');
                 showToast("Receiver Username is required.", "error");
                 return;
             }
             if (currentReceiveMode === 'private' && !password) return;
-            if (currentReceiveMode === 'public' && !code) return;
+            if (currentReceiveMode === 'public' && !code) {
+                playSound('error');
+                showToast("2-Digit Public Code is required.", "error");
+                return;
+            }
 
             btn.disabled = true;
             btn.innerHTML = '<div class="loader"></div> DECRYPTING...';
             result.classList.add('hidden');
 
             try {
-                let query = sb.from('transfers').select('*').eq('receiver_username', username);
+                let query = sb.from('transfers').select('*');
                 
                 if (currentReceiveMode === 'private') {
-                    query = query.eq('password', password);
+                    query = query.eq('receiver_username', username).eq('password', password);
                 } else {
                     query = query.eq('public_code', code).eq('is_public', true);
                 }
