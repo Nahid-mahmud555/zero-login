@@ -1032,12 +1032,14 @@
             channel.on('postgres_changes', { 
                 event: 'INSERT', 
                 schema: 'public', 
-                table: 'transfers',
-                filter: 'is_public=eq.true'
+                table: 'transfers'
             }, (payload) => {
-                console.log('Public drop received:', payload);
-                playSound('notify');
-                showToast(`New Public Drop available! Code: ${payload.new.public_code}`, "info");
+                if (payload.new.is_public) {
+                    console.log('Public drop received:', payload);
+                    if (currentUser) fetchInbox(); // Refresh inbox if logged in
+                    playSound('notify');
+                    showToast(`New Public Drop available! Code: ${payload.new.public_code}`, "info");
+                }
             });
 
             inboxSubscription = channel.subscribe((status) => {
@@ -1074,11 +1076,11 @@
                     console.log(`${expiredItems.length} expired drops purged.`);
                 }
 
-                // 2. Fetch Active Drops
+                // 2. Fetch Active Drops (Private to user + All Public)
                 const { data, error } = await sb
                     .from('transfers')
                     .select('*')
-                    .eq('receiver_username', currentUser.username)
+                    .or(`receiver_username.eq.${currentUser.username},is_public.eq.true`)
                     .gte('created_at', twentyFourHoursAgo) // Only show non-expired
                     .order('created_at', { ascending: false });
 
@@ -1094,18 +1096,19 @@
                     list.innerHTML = data.map(item => `
                         <div class="glass p-6 flex items-center gap-6 group">
                             <div class="w-12 h-12 bg-white/5 rounded-xl flex items-center justify-center">
-                                <i data-lucide="lock" class="w-6 h-6 text-blue-500"></i>
+                                <i data-lucide="${item.is_public ? 'globe' : 'lock'}" class="w-6 h-6 ${item.is_public ? 'text-green-500' : 'text-blue-500'}"></i>
                             </div>
                             <div class="flex-1">
                                 <div class="flex items-center gap-2 mb-1">
                                     <h4 class="font-bold truncate max-w-[200px]">${item.file_name}</h4>
                                     <span class="text-[8px] px-2 py-0.5 bg-blue-500/10 text-blue-500 rounded-full font-black uppercase tracking-widest">${item.sender_nickname || 'Anonymous'}</span>
+                                    ${item.is_public ? `<span class="text-[8px] px-2 py-0.5 bg-green-500/10 text-green-500 rounded-full font-black uppercase tracking-widest">Public</span>` : ''}
                                 </div>
                                 <p class="text-[10px] uppercase tracking-widest opacity-40">${new Date(item.created_at).toLocaleString()}</p>
                             </div>
                             <div class="flex items-center gap-2">
-                                <button onclick="openInboxItem('${item.id}', '${item.password}')" class="p-3 bg-blue-600/10 hover:bg-blue-600 text-blue-500 hover:text-white rounded-xl transition-all">
-                                    <i data-lucide="unlock" class="w-5 h-5"></i>
+                                <button onclick="openInboxItem('${item.id}', '${item.password || ''}', ${item.is_public})" class="p-3 bg-blue-600/10 hover:bg-blue-600 text-blue-500 hover:text-white rounded-xl transition-all">
+                                    <i data-lucide="${item.is_public ? 'download' : 'unlock'}" class="w-5 h-5"></i>
                                 </button>
                                 <button onclick="deleteInboxItem('${item.id}', '${item.file_path}')" class="p-3 bg-red-600/10 hover:bg-red-600 text-red-500 hover:text-white rounded-xl transition-all">
                                     <i data-lucide="trash-2" class="w-5 h-5"></i>
@@ -1128,7 +1131,38 @@
             }
         };
 
-        window.openInboxItem = async (id, correctPassword) => {
+        window.openInboxItem = async (id, correctPassword, isPublic = false) => {
+            const downloadFile = async () => {
+                try {
+                    const { data, error } = await sb.from('transfers').select('*').eq('id', id).single();
+                    if (error) throw error;
+
+                    const { data: fileBlob, error: dlError } = await sb.storage
+                        .from('transfers')
+                        .download(data.file_path);
+
+                    if (dlError) throw dlError;
+
+                    const url = URL.createObjectURL(fileBlob);
+                    const link = document.createElement("a");
+                    link.href = url;
+                    link.download = data.file_name;
+                    document.body.appendChild(link);
+                    link.click();
+                    document.body.removeChild(link);
+                    URL.revokeObjectURL(url);
+                    
+                    playSound('receive');
+                    showToast("File decrypted and downloaded!", "success");
+                } catch (err) {
+                    showToast("Download Error: " + err.message, "error");
+                }
+            };
+
+            if (isPublic) {
+                return downloadFile();
+            }
+
             showModal(
                 "Unlock File",
                 "Enter the secret password to decrypt and download this file.",
@@ -1142,31 +1176,7 @@
                         return showToast("Incorrect password. Access denied.", "error");
                     }
 
-                    // If password matches, proceed to download
-                    try {
-                        const { data, error } = await sb.from('transfers').select('*').eq('id', id).single();
-                        if (error) throw error;
-
-                        const { data: fileBlob, error: dlError } = await sb.storage
-                            .from('transfers')
-                            .download(data.file_path);
-
-                        if (dlError) throw dlError;
-
-                        const url = URL.createObjectURL(fileBlob);
-                        const link = document.createElement("a");
-                        link.href = url;
-                        link.download = data.file_name;
-                        document.body.appendChild(link);
-                        link.click();
-                        document.body.removeChild(link);
-                        URL.revokeObjectURL(url);
-                        
-                        playSound('receive');
-                        showToast("File decrypted and downloaded!", "success");
-                    } catch (err) {
-                        showToast("Download Error: " + err.message, "error");
-                    }
+                    await downloadFile();
                 }
             );
         };
