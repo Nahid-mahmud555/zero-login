@@ -507,11 +507,13 @@
                                     <button onclick="setTransferMode('public')" id="mode-public" class="px-4 py-2 rounded-lg text-[10px] font-bold uppercase tracking-widest transition-all text-white/40">Public</button>
                                 </div>
                             </div>
-                            <div id="private-fields" class="space-y-6">
+                            <div class="space-y-6">
                                 <div class="space-y-2">
                                     <label class="text-[10px] font-bold uppercase tracking-[0.2em] ml-1" style="color: var(--text-muted)">Receiver Username</label>
                                     <input id="send-receiver" type="text" placeholder="@username" class="input-field">
                                 </div>
+                            </div>
+                            <div id="private-fields" class="space-y-6">
                                 <div class="space-y-2">
                                     <label class="text-[10px] font-bold uppercase tracking-[0.2em] ml-1" style="color: var(--text-muted)">Secret Password</label>
                                     <input id="send-password" type="password" placeholder="••••••••" class="input-field">
@@ -595,11 +597,13 @@
                             <button onclick="setReceiveMode('public')" id="recv-mode-public" class="flex-1 py-3 rounded-xl text-[10px] font-bold uppercase tracking-widest transition-all text-white/40">Public Search</button>
                         </div>
 
-                        <div id="receive-private-fields" class="space-y-6">
+                        <div class="space-y-6">
                             <div class="space-y-2">
                                 <label class="text-[10px] font-bold uppercase tracking-[0.2em] ml-1" style="color: var(--text-muted)">Receiver Username</label>
                                 <input id="receive-username" type="text" placeholder="@username" class="input-field">
                             </div>
+                        </div>
+                        <div id="receive-private-fields" class="space-y-6">
                             <div class="space-y-2">
                                 <label class="text-[10px] font-bold uppercase tracking-[0.2em] ml-1" style="color: var(--text-muted)">Secret Password</label>
                                 <input id="receive-password" type="password" placeholder="••••••••" class="input-field">
@@ -768,10 +772,10 @@
 
         // --- Sounds ---
         const sounds = {
-            send: new Audio('https://assets.mixkit.co/active_storage/sfx/2358/2358-preview.mp3'),
-            receive: new Audio('https://assets.mixkit.co/active_storage/sfx/2354/2354-preview.mp3'),
-            error: new Audio('https://assets.mixkit.co/active_storage/sfx/2357/2357-preview.mp3'),
-            notify: new Audio('https://assets.mixkit.co/active_storage/sfx/2359/2359-preview.mp3')
+            send: new Audio('https://assets.mixkit.co/active_storage/sfx/2571/2571-preview.mp3'),
+            receive: new Audio('https://assets.mixkit.co/active_storage/sfx/2568/2568-preview.mp3'),
+            error: new Audio('https://assets.mixkit.co/active_storage/sfx/2572/2572-preview.mp3'),
+            notify: new Audio('https://assets.mixkit.co/active_storage/sfx/2569/2569-preview.mp3')
         };
 
         const playSound = (name) => {
@@ -899,8 +903,11 @@
 
         // --- Navigation ---
         window.showView = (viewName) => {
+            const view = document.getElementById(`view-${viewName}`);
+            if (!view) return;
+
             document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
-            document.getElementById(`view-${viewName}`).classList.add('active');
+            view.classList.add('active');
             window.scrollTo(0, 0);
 
             // Clear inputs when switching to send or receive
@@ -912,8 +919,10 @@
                 // Reset file dropzone if in send view
                 if (viewName === 'send') {
                     selectedFile = null;
-                    document.getElementById('file-info').classList.add('hidden');
-                    document.getElementById('dropzone-file').classList.remove('hidden');
+                    const emptyState = document.getElementById('dropzone-empty');
+                    const fileState = document.getElementById('dropzone-file');
+                    if (emptyState) emptyState.classList.remove('hidden');
+                    if (fileState) fileState.classList.add('hidden');
                 }
             }
 
@@ -929,9 +938,15 @@
 
         // --- Auth Logic ---
         window.handleSignup = async () => {
-            const name = document.getElementById('signup-name').value.trim();
-            const username = document.getElementById('signup-username').value.trim().toLowerCase();
-            const password = document.getElementById('signup-password').value;
+            const nameField = document.getElementById('signup-name');
+            const userField = document.getElementById('signup-username');
+            const passField = document.getElementById('signup-password');
+
+            if (!nameField || !userField || !passField) return;
+
+            const name = nameField.value.trim();
+            const username = userField.value.trim().toLowerCase();
+            const password = passField.value;
 
             // Validation
             if (!name || !username || !password) return showToast("All fields are required.", "error");
@@ -965,8 +980,13 @@
         };
 
         window.handleLogin = async () => {
-            const username = document.getElementById('login-username').value.trim().toLowerCase();
-            const password = document.getElementById('login-password').value;
+            const userField = document.getElementById('login-username');
+            const passField = document.getElementById('login-password');
+
+            if (!userField || !passField) return;
+
+            const username = userField.value.trim().toLowerCase();
+            const password = passField.value;
 
             try {
                 const { data, error } = await sb.from('users').select('*').eq('username', username).eq('password', password).single();
@@ -991,12 +1011,15 @@
             }
             currentUser = null;
             localStorage.removeItem('zdrop_user');
-            document.getElementById('user-display').classList.add('hidden');
-            document.getElementById('landing-signup-card').classList.remove('hidden');
-            document.getElementById('landing-login-footer').classList.remove('hidden');
             
-            // Hide Menu User Info Bar
+            const userDisp = document.getElementById('user-display');
+            const signupCard = document.getElementById('landing-signup-card');
+            const loginFooter = document.getElementById('landing-login-footer');
             const infoBar = document.getElementById('user-info-bar');
+
+            if (userDisp) userDisp.classList.add('hidden');
+            if (signupCard) signupCard.classList.remove('hidden');
+            if (loginFooter) loginFooter.classList.remove('hidden');
             if (infoBar) infoBar.classList.add('hidden');
             
             showView('landing');
@@ -1010,30 +1033,37 @@
                 const { data, error } = await sb.from('users').select('*').eq('username', username).single();
                 if (error || !data) return showToast("User profile not found.", "error");
 
-                document.getElementById('profile-name').innerText = data.name;
-                document.getElementById('profile-username').innerText = `@${data.username}`;
-                document.getElementById('profile-bio').value = data.bio || "";
-                document.getElementById('bio-count').innerText = `${(data.bio || "").length}/101`;
+                const profName = document.getElementById('profile-name');
+                const profUser = document.getElementById('profile-username');
+                const profBio = document.getElementById('profile-bio');
+                const bioCount = document.getElementById('bio-count');
+                const logoutBtn = document.getElementById('logout-btn');
+                const bioSection = document.getElementById('bio-section');
 
-                // Hide edit controls if not current user
+                if (profName) profName.innerText = data.name;
+                if (profUser) profUser.innerText = `@${data.username}`;
+                if (profBio) profBio.value = data.bio || "";
+                if (bioCount) bioCount.innerText = `${(data.bio || "").length}/101`;
+
                 const isMe = currentUser && currentUser.username === data.username;
-                document.getElementById('logout-btn').style.display = isMe ? 'block' : 'none';
-                document.getElementById('bio-section').style.display = isMe ? 'block' : 'none';
+                if (logoutBtn) logoutBtn.style.display = isMe ? 'block' : 'none';
+                if (bioSection) bioSection.style.display = isMe ? 'block' : 'none';
                 
-                // If not me, show bio as read-only text if it exists
                 let publicBio = document.getElementById('public-bio');
-                if (!publicBio) {
+                if (!publicBio && bioSection && bioSection.parentNode) {
                     publicBio = document.createElement('div');
                     publicBio.id = 'public-bio';
                     publicBio.className = 'p-6 bg-white/5 rounded-2xl text-sm leading-relaxed opacity-80';
-                    document.getElementById('bio-section').parentNode.insertBefore(publicBio, document.getElementById('bio-section'));
+                    bioSection.parentNode.insertBefore(publicBio, bioSection);
                 }
                 
-                if (!isMe) {
-                    publicBio.innerText = data.bio || "No bio available.";
-                    publicBio.classList.remove('hidden');
-                } else {
-                    publicBio.classList.add('hidden');
+                if (publicBio) {
+                    if (!isMe) {
+                        publicBio.innerText = data.bio || "No bio available.";
+                        publicBio.classList.remove('hidden');
+                    } else {
+                        publicBio.classList.add('hidden');
+                    }
                 }
 
                 showView('profile');
@@ -1044,33 +1074,45 @@
 
         const updateUIForUser = () => {
             if (!currentUser) return;
-            document.getElementById('user-display').classList.remove('hidden');
-            document.getElementById('landing-signup-card').classList.add('hidden');
-            document.getElementById('landing-login-footer').classList.add('hidden');
-            document.getElementById('nav-username').innerText = `@${currentUser.username}`;
-            document.getElementById('profile-name').innerText = currentUser.name;
-            document.getElementById('profile-username').innerText = `@${currentUser.username}`;
-            document.getElementById('profile-bio').value = currentUser.bio || "";
-            document.getElementById('bio-count').innerText = `${(currentUser.bio || "").length}/101`;
             
-            // Reset profile view to "My Profile" mode
-            document.getElementById('logout-btn').style.display = 'block';
-            document.getElementById('bio-section').style.display = 'block';
+            const userDisplay = document.getElementById('user-display');
+            const signupCard = document.getElementById('landing-signup-card');
+            const loginFooter = document.getElementById('landing-login-footer');
+            const navUsername = document.getElementById('nav-username');
+            const profileName = document.getElementById('profile-name');
+            const profileUsername = document.getElementById('profile-username');
+            const profileBio = document.getElementById('profile-bio');
+            const bioCount = document.getElementById('bio-count');
+            const logoutBtn = document.getElementById('logout-btn');
+            const bioSection = document.getElementById('bio-section');
+            const infoBar = document.getElementById('user-info-bar');
+            const userDisplayName = document.getElementById('user-display-name');
+            const nickField = document.getElementById('send-nickname');
+
+            if (userDisplay) userDisplay.classList.remove('hidden');
+            if (signupCard) signupCard.classList.add('hidden');
+            if (loginFooter) loginFooter.classList.add('hidden');
+            if (navUsername) navUsername.innerText = `@${currentUser.username}`;
+            if (profileName) profileName.innerText = currentUser.name;
+            if (profileUsername) profileUsername.innerText = `@${currentUser.username}`;
+            if (profileBio) profileBio.value = currentUser.bio || "";
+            if (bioCount) bioCount.innerText = `${(currentUser.bio || "").length}/101`;
+            
+            if (logoutBtn) logoutBtn.style.display = 'block';
+            if (bioSection) bioSection.style.display = 'block';
+            
             const publicBio = document.getElementById('public-bio');
             if (publicBio) publicBio.classList.add('hidden');
 
-            // Update Menu User Info Bar
-            const infoBar = document.getElementById('user-info-bar');
             if (infoBar) {
                 infoBar.classList.remove('hidden');
-                document.getElementById('user-display-name').innerText = currentUser.name;
+                if (userDisplayName) userDisplayName.innerText = currentUser.name;
             }
 
-            const nickField = document.getElementById('send-nickname');
             if (nickField) nickField.value = currentUser.name;
             
-            if (window.fetchInbox) window.fetchInbox(); // Fetch inbox when UI updates
-            subscribeToInbox(); // Start real-time listener
+            if (window.fetchInbox) window.fetchInbox();
+            subscribeToInbox();
         };
 
         // --- Inbox Logic ---
@@ -1148,11 +1190,11 @@
                     console.log(`${expiredItems.length} expired drops purged.`);
                 }
 
-                // 2. Fetch Active Drops (Private to user + All Public)
+                // 2. Fetch Active Drops (Targeted to user)
                 const { data, error } = await sb
                     .from('transfers')
                     .select('*')
-                    .or(`receiver_username.eq.${currentUser.username},is_public.eq.true`)
+                    .eq('receiver_username', currentUser.username)
                     .gte('created_at', twentyFourHoursAgo) // Only show non-expired
                     .order('created_at', { ascending: false });
 
@@ -1162,47 +1204,53 @@
                 const badge = document.getElementById('inbox-badge');
                 
                 if (data.length > 0) {
-                    badge.innerText = data.length;
-                    badge.classList.remove('hidden');
+                    if (badge) {
+                        badge.innerText = data.length;
+                        badge.classList.remove('hidden');
+                    }
                     
-                    list.innerHTML = data.map(item => `
-                        <div class="glass p-6 flex items-center gap-6 group">
-                            <div class="w-12 h-12 bg-white/5 rounded-xl flex items-center justify-center">
-                                <i data-lucide="${item.is_public ? 'globe' : 'lock'}" class="w-6 h-6 ${item.is_public ? 'text-green-500' : 'text-blue-500'}"></i>
-                            </div>
-                            <div class="flex-1">
-                                <div class="flex items-center gap-2 mb-1">
-                                    <h4 class="font-bold truncate max-w-[200px]">${item.file_name}</h4>
-                                    <span class="text-[10px] px-2 py-0.5 bg-blue-500/10 text-blue-500 rounded-full font-black uppercase tracking-widest">${item.sender_nickname || 'Anonymous'}</span>
-                                    ${item.is_public ? `<span class="text-[10px] px-2 py-0.5 bg-green-500/10 text-green-500 rounded-full font-black uppercase tracking-widest">Public</span>` : ''}
+                    if (list) {
+                        list.innerHTML = data.map(item => `
+                            <div class="glass p-6 flex items-center gap-6 group">
+                                <div class="w-12 h-12 bg-white/5 rounded-xl flex items-center justify-center">
+                                    <i data-lucide="${item.is_public ? 'globe' : 'lock'}" class="w-6 h-6 ${item.is_public ? 'text-green-500' : 'text-blue-500'}"></i>
                                 </div>
-                                <p class="text-[10px] uppercase tracking-widest opacity-40">${new Date(item.created_at).toLocaleString()}</p>
-                                ${item.is_public ? `<p class="text-[10px] font-black text-green-500 uppercase tracking-widest mt-1">Code: ${item.public_code} (Portal Only)</p>` : ''}
-                            </div>
-                            <div class="flex items-center gap-2">
-                                ${item.is_public ? `
-                                    <div class="p-3 bg-white/5 text-white/20 rounded-xl cursor-not-allowed" title="Public drops must be accessed via the Public Portal">
-                                        <i data-lucide="eye" class="w-5 h-5"></i>
+                                <div class="flex-1">
+                                    <div class="flex items-center gap-2 mb-1">
+                                        <h4 class="font-bold truncate max-w-[200px]">${item.file_name}</h4>
+                                        <span class="text-[10px] px-2 py-0.5 bg-blue-500/10 text-blue-500 rounded-full font-black uppercase tracking-widest">${item.sender_nickname || 'Anonymous'}</span>
+                                        ${item.is_public ? `<span class="text-[10px] px-2 py-0.5 bg-green-500/10 text-green-500 rounded-full font-black uppercase tracking-widest">Public</span>` : ''}
                                     </div>
-                                ` : `
-                                    <button onclick="openInboxItem('${item.id}', '${item.password || ''}', false)" class="p-3 bg-blue-600/10 hover:bg-blue-600 text-blue-500 hover:text-white rounded-xl transition-all">
-                                        <i data-lucide="unlock" class="w-5 h-5"></i>
+                                    <p class="text-[10px] uppercase tracking-widest opacity-40">${new Date(item.created_at).toLocaleString()}</p>
+                                    ${item.is_public ? `<p class="text-[10px] font-black text-green-500 uppercase tracking-widest mt-1">Code: ${item.public_code} (Portal Only)</p>` : ''}
+                                </div>
+                                <div class="flex items-center gap-2">
+                                    ${item.is_public ? `
+                                        <div class="p-3 bg-white/5 text-white/20 rounded-xl cursor-not-allowed" title="Public drops must be accessed via the Public Portal">
+                                            <i data-lucide="eye" class="w-5 h-5"></i>
+                                        </div>
+                                    ` : `
+                                        <button onclick="openInboxItem('${item.id}', '${item.password || ''}', false)" class="p-3 bg-blue-600/10 hover:bg-blue-600 text-blue-500 hover:text-white rounded-xl transition-all">
+                                            <i data-lucide="unlock" class="w-5 h-5"></i>
+                                        </button>
+                                    `}
+                                    <button onclick="deleteInboxItem('${item.id}', '${item.file_path}')" class="p-3 bg-red-600/10 hover:bg-red-600 text-red-500 hover:text-white rounded-xl transition-all">
+                                        <i data-lucide="trash-2" class="w-5 h-5"></i>
                                     </button>
-                                `}
-                                <button onclick="deleteInboxItem('${item.id}', '${item.file_path}')" class="p-3 bg-red-600/10 hover:bg-red-600 text-red-500 hover:text-white rounded-xl transition-all">
-                                    <i data-lucide="trash-2" class="w-5 h-5"></i>
-                                </button>
+                                </div>
                             </div>
-                        </div>
-                    `).join('');
+                        `).join('');
+                    }
                 } else {
-                    badge.classList.add('hidden');
-                    list.innerHTML = `
-                        <div class="text-center py-20 opacity-20">
-                            <i data-lucide="inbox" class="w-16 h-16 mx-auto mb-4"></i>
-                            <p class="font-bold uppercase tracking-widest">Your inbox is empty</p>
-                        </div>
-                    `;
+                    if (badge) badge.classList.add('hidden');
+                    if (list) {
+                        list.innerHTML = `
+                            <div class="text-center py-20 opacity-20">
+                                <i data-lucide="inbox" class="w-16 h-16 mx-auto mb-4"></i>
+                                <p class="font-bold uppercase tracking-widest">Your inbox is empty</p>
+                            </div>
+                        `;
+                    }
                 }
                 lucide.createIcons();
             } catch (err) {
@@ -1315,46 +1363,68 @@
             if (file.size > 3 * 1024 * 1024) {
                 playSound('error');
                 showToast("File too large! Maximum limit is 3MB.", "error");
-                fileInput.value = "";
+                const fileInput = document.getElementById('file-input');
+                if (fileInput) fileInput.value = "";
                 return;
             }
 
             selectedFile = file;
-            document.getElementById('dropzone-empty').classList.add('hidden');
-            document.getElementById('dropzone-file').classList.remove('hidden');
-            document.getElementById('file-name-display').innerText = file.name;
+            const emptyState = document.getElementById('dropzone-empty');
+            const fileState = document.getElementById('dropzone-file');
+            const nameDisp = document.getElementById('file-name-display');
+
+            if (emptyState) emptyState.classList.add('hidden');
+            if (fileState) fileState.classList.remove('hidden');
+            if (nameDisp) nameDisp.innerText = file.name;
         };
 
         window.removeFile = (e) => {
-            e.stopPropagation();
+            if (e) e.stopPropagation();
             selectedFile = null;
-            document.getElementById('dropzone-empty').classList.remove('hidden');
-            document.getElementById('dropzone-file').classList.add('hidden');
-            fileInput.value = "";
+            const emptyState = document.getElementById('dropzone-empty');
+            const fileState = document.getElementById('dropzone-file');
+            const fileInput = document.getElementById('file-input');
+
+            if (emptyState) emptyState.classList.remove('hidden');
+            if (fileState) fileState.classList.add('hidden');
+            if (fileInput) fileInput.value = "";
         };
 
         window.handleSend = async () => {
-            const receiver = document.getElementById('send-receiver').value.trim().toLowerCase();
-            const password = document.getElementById('send-password').value;
-            const nickname = document.getElementById('send-nickname').value.trim();
-            const desc = document.getElementById('send-desc').value;
-            const textContent = document.getElementById('send-text').value;
+            const receiverField = document.getElementById('send-receiver');
+            const passField = document.getElementById('send-password');
+            const nickField = document.getElementById('send-nickname');
+            const descField = document.getElementById('send-desc');
+            const textField = document.getElementById('send-text');
             const btn = document.getElementById('send-btn');
 
-            if (currentTransferMode === 'private') {
-                if (!receiver || !password || !nickname) {
-                    playSound('error');
-                    showToast("Receiver, Password, and Your Nickname are required for private drops.", "error");
-                    return;
-                }
+            if (!receiverField || !passField || !nickField || !descField || !textField || !btn) return;
 
-                // Check if receiver exists in users table
-                const { data: userExists, error: userError } = await sb.from('users').select('id').eq('username', receiver).single();
-                if (userError || !userExists) {
-                    playSound('error');
-                    showToast("User available nah (Receiver username not found).", "error");
-                    return;
-                }
+            const receiver = receiverField.value.trim().toLowerCase();
+            const password = passField.value;
+            const nickname = nickField.value.trim();
+            const desc = descField.value;
+            const textContent = textField.value;
+
+            // Validation for both modes
+            if (!receiver || !nickname) {
+                playSound('error');
+                showToast("Receiver Username and Your Nickname are required.", "error");
+                return;
+            }
+
+            if (currentTransferMode === 'private' && !password) {
+                playSound('error');
+                showToast("Password is required for private drops.", "error");
+                return;
+            }
+
+            // Check if receiver exists in users table for both modes
+            const { data: userExists, error: userError } = await sb.from('users').select('id').eq('username', receiver).single();
+            if (userError || !userExists) {
+                playSound('error');
+                showToast("User available nah (Receiver username not found).", "error");
+                return;
             }
 
             let fileToUpload = selectedFile;
@@ -1398,7 +1468,7 @@
 
                 // 2. Insert metadata into Database
                 const { error: dbError } = await sb.from('transfers').insert([{
-                    receiver_username: currentTransferMode === 'private' ? receiver : null,
+                    receiver_username: receiver,
                     password: currentTransferMode === 'private' ? password : null,
                     is_public: currentTransferMode === 'public',
                     public_code: publicCode,
@@ -1430,11 +1500,17 @@
                     showView('menu');
                 }
                 // Reset
-                document.getElementById('send-receiver').value = "";
-                document.getElementById('send-password').value = "";
-                document.getElementById('send-nickname').value = "";
-                document.getElementById('send-desc').value = "";
-                document.getElementById('send-text').value = "";
+                const sendRec = document.getElementById('send-receiver');
+                const sendPass = document.getElementById('send-password');
+                const sendNick = document.getElementById('send-nickname');
+                const sendDesc = document.getElementById('send-desc');
+                const sendText = document.getElementById('send-text');
+
+                if (sendRec) sendRec.value = "";
+                if (sendPass) sendPass.value = "";
+                if (sendNick) sendNick.value = "";
+                if (sendDesc) sendDesc.value = "";
+                if (sendText) sendText.value = "";
                 removeFile({ stopPropagation: () => {} });
             } catch (err) {
                 console.error(err);
@@ -1449,13 +1525,24 @@
 
         // --- Receive Logic ---
         window.handleReceive = async () => {
-            const username = document.getElementById('receive-username').value.trim().toLowerCase();
-            const password = document.getElementById('receive-password').value;
-            const code = document.getElementById('receive-code').value.trim();
+            const userField = document.getElementById('receive-username');
+            const passField = document.getElementById('receive-password');
+            const codeField = document.getElementById('receive-code');
             const btn = document.getElementById('receive-btn');
             const result = document.getElementById('receive-result');
 
-            if (currentReceiveMode === 'private' && (!username || !password)) return;
+            if (!userField || !passField || !codeField || !btn || !result) return;
+
+            const username = userField.value.trim().toLowerCase();
+            const password = passField.value;
+            const code = codeField.value.trim();
+
+            if (!username) {
+                playSound('error');
+                showToast("Receiver Username is required.", "error");
+                return;
+            }
+            if (currentReceiveMode === 'private' && !password) return;
             if (currentReceiveMode === 'public' && !code) return;
 
             btn.disabled = true;
@@ -1463,10 +1550,10 @@
             result.classList.add('hidden');
 
             try {
-                let query = sb.from('transfers').select('*');
+                let query = sb.from('transfers').select('*').eq('receiver_username', username);
                 
                 if (currentReceiveMode === 'private') {
-                    query = query.eq('receiver_username', username).eq('password', password);
+                    query = query.eq('password', password);
                 } else {
                     query = query.eq('public_code', code).eq('is_public', true);
                 }
@@ -1478,9 +1565,14 @@
                 if (data && data.length > 0) {
                     const transfer = data[0];
                     result.classList.remove('hidden');
-                    document.getElementById('res-filename').innerText = transfer.file_name;
-                    document.getElementById('res-desc').innerText = transfer.description || "No description provided.";
-                    document.getElementById('res-sender').innerText = `Sent by: ${transfer.sender_nickname || 'Anonymous'}`;
+                    
+                    const resFile = document.getElementById('res-filename');
+                    const resDesc = document.getElementById('res-desc');
+                    const resSender = document.getElementById('res-sender');
+
+                    if (resFile) resFile.innerText = transfer.file_name;
+                    if (resDesc) resDesc.innerText = transfer.description || "No description provided.";
+                    if (resSender) resSender.innerText = `Sent by: ${transfer.sender_nickname || 'Anonymous'}`;
                     
                     const dlBtn = document.getElementById('download-btn');
                     dlBtn.onclick = async () => {
